@@ -2,3 +2,7 @@
 
 # mast
 immutable, versioned, diffable map implementation of Merkle Search Tree
+
+See Go package documentation at:
+
+https://godoc.org/github.com/jrhy/mast
