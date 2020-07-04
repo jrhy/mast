@@ -391,7 +391,7 @@ func NewInMemory() Mast {
 
 // NewRoot creates an empty tree whose nodes will be persisted remotely according to remoteOptions.
 func NewRoot( /*config RemoteConfig,*/ remoteOptions *CreateRemoteOptions) *Root {
-	var branchFactor uint = DefaultBranchFactor
+	var branchFactor = uint(DefaultBranchFactor)
 	if remoteOptions != nil && remoteOptions.BranchFactor > 0 {
 		branchFactor = remoteOptions.BranchFactor
 	}

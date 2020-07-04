@@ -245,7 +245,7 @@ func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, 
 			return "", fmt.Errorf("don't know how to flush link of type %T", l)
 		}
 	}
-	var trimmed mastNode = *node
+	trimmed := *node
 	if linkCount == 0 {
 		trimmed.Link = nil
 	}
