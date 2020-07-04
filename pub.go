@@ -29,8 +29,11 @@ type Persist interface {
 type RemoteConfig struct {
 	// KeysLike is an instance of the type keys will be deserialized as.
 	KeysLike interface{}
+
 	// KeysLike is an instance of the type values will be deserialized as.
-	ValuesLike              interface{}
+	ValuesLike interface{}
+
+	// StoreImmutablePartsWith is used to store and load serialized nodes.
 	StoreImmutablePartsWith Persist
 	Unmarshal               func([]byte, interface{}) error
 }
