@@ -1,9 +1,10 @@
 /*
-Package mast provides an immutable, versioned, diffable map.  Masts
-can be huge (not limited to memory).  Masts can be stored in
-anything, like a filesystem, KV store, or blob store.  Masts are
-designed to be safely concurrently accessed by multiple threads/hosts.
-And like Merkle DAGs, Masts are designed to be easy to synchronize.
+Package mast provides an immutable, versioned, diffable map
+implementation of a Merkle Search Tree (MST).  Masts can be huge
+(not limited to memory).  Masts can be stored in anything, like a
+filesystem, KV store, or blob store.  Masts are designed to be
+safely concurrently accessed by multiple threads/hosts.  And like
+Merkle DAGs, Masts are designed to be easy to synchronize.
 
 What's cool about MSTs
 
