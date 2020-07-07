@@ -254,7 +254,7 @@ func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, 
 		return "", fmt.Errorf("encoding: %w", err)
 	}
 	hashBytes := blake2b.Sum256(encoded)
-	hash := base64.StdEncoding.EncodeToString(hashBytes[:])
+	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
 	err = persist.Store(hash, encoded)
 	if err != nil {
 		return "", fmt.Errorf("storing: %w", err)
