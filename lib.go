@@ -12,7 +12,7 @@ const DefaultBranchFactor = 16
 
 // Mast encapsulates data and parameters for the in-memory portion of a Merkle Search Tree.
 type Mast struct {
-	root            link
+	root            interface{}
 	zeroKey         interface{}
 	zeroValue       interface{}
 	keyCompare      func(interface{}, interface{}) (int, error)
@@ -31,7 +31,7 @@ type Mast struct {
 type mastNode struct {
 	Key   []interface{}
 	Value []interface{}
-	Link  []link `json:",omitempty"`
+	Link  []interface{} `json:",omitempty"`
 }
 
 type pathEntry struct {
@@ -68,7 +68,7 @@ func (m *Mast) savePathForRoot(path []pathEntry) error {
 }
 
 // Splits the given node into two: left and right, so they could be the left+right children of a parent entry with the given key. The key is not expected to already be present in the source node, and will panic--but it would not migrated to the output, so that the caller can decide where to put it and its new children.
-func split(node *mastNode, key interface{}, mast *Mast) (link, link, error) {
+func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{}, error) {
 	var splitIndex int
 	var err error
 	for splitIndex = 0; splitIndex < len(node.Key); splitIndex++ {
@@ -83,12 +83,14 @@ func split(node *mastNode, key interface{}, mast *Mast) (link, link, error) {
 			break
 		}
 	}
-	var leftLink, tooBigLink link = nil, nil
+	var leftLink, tooBigLink interface{} = nil, nil
 	left := mastNode{
 		Key:   append([]interface{}{}, node.Key[:splitIndex]...),
 		Value: append([]interface{}{}, node.Value[:splitIndex]...),
-		Link:  append([]link{}, node.Link[:splitIndex+1]...),
+		Link:  append([]interface{}{}, node.Link[:splitIndex+1]...),
 	}
+
+	// repartition the left and right subtrees based on the new key
 	leftMaxLink := left.Link[len(left.Link)-1]
 	if leftMaxLink != nil {
 		leftMax, err := mast.load(leftMaxLink)
@@ -113,12 +115,12 @@ func split(node *mastNode, key interface{}, mast *Mast) (link, link, error) {
 			return nil, nil, fmt.Errorf("store left: %w", err)
 		}
 	}
-	var rightLink link
+	var rightLink interface{}
 	var right mastNode
 	right = mastNode{
 		Key:   append([]interface{}{}, node.Key[splitIndex:]...),
 		Value: append([]interface{}{}, node.Value[splitIndex:]...),
-		Link:  append([]link{tooBigLink}, node.Link[splitIndex+1:]...),
+		Link:  append([]interface{}{tooBigLink}, node.Link[splitIndex+1:]...),
 	}
 	rightMinLink := right.Link[0]
 	if rightMinLink != nil {
@@ -128,13 +130,14 @@ func split(node *mastNode, key interface{}, mast *Mast) (link, link, error) {
 		}
 		tooSmallLink, rightMinLink, err := split(rightMin, key, mast)
 		if err != nil {
-			return nil, nil, fmt.Errorf("splitt rightMin: %w", err)
+			return nil, nil, fmt.Errorf("split rightMin: %w", err)
 		}
 		if mast.debug {
 			fmt.Printf("  splitting rightMin, node with keys %v, is done: tooSmallLink=%v, rightMinLink=%v", rightMin.Key, tooSmallLink, rightMinLink)
 		}
 		right.Link[0] = rightMinLink
 		if tooSmallLink != nil {
+			// shouldn't happen
 			panic("dunno what to do with non-nil tooSmall")
 		}
 	}
@@ -225,7 +228,7 @@ func uint8min(x uint8, y uint8) uint8 {
 	return y
 }
 
-func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, error)) (contentHash, error) {
+func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, error)) (string, error) {
 	linkCount := 0
 	for i, il := range node.Link {
 		if il == nil {
@@ -233,7 +236,7 @@ func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, 
 		}
 		linkCount++
 		switch l := il.(type) {
-		case contentHash:
+		case string:
 			break
 		case *mastNode:
 			newLink, err := l.flush(persist, marshal)
@@ -260,14 +263,14 @@ func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, 
 		return "", fmt.Errorf("storing: %w", err)
 	}
 	// fmt.Printf("%s->%s\n", hash, encoded)
-	return contentHash(hash), nil
+	return hash, nil
 }
 
 func emptyNode() mastNode {
 	return mastNode{
 		Key:   []interface{}{},
 		Value: []interface{}{},
-		Link:  []link{nil},
+		Link:  []interface{}{nil},
 	}
 }
 
@@ -280,7 +283,7 @@ func (node *mastNode) extract(from, to int) *mastNode {
 	newChild := mastNode{}
 	newChild.Key = append([]interface{}{}, node.Key[from:to]...)
 	newChild.Value = append([]interface{}{}, node.Value[from:to]...)
-	newChild.Link = append([]link{}, node.Link[from:to+1]...)
+	newChild.Link = append([]interface{}{}, node.Link[from:to+1]...)
 	if len(newChild.Key) != len(newChild.Value) {
 		panic("keys and values not same length")
 	}
@@ -316,7 +319,7 @@ func (m *Mast) grow() error {
 		if m.debug {
 			fmt.Printf("  extracted left: %v\n", node)
 		}
-		var newLeftLink link
+		var newLeftLink interface{}
 		if newLeftNode != nil {
 			newLeftLink, err = m.store(newLeftNode)
 			if err != nil {
@@ -396,7 +399,7 @@ func (m *Mast) shrink() error {
 	newNode := mastNode{
 		Key:   []interface{}{},
 		Value: []interface{}{},
-		Link:  []link{},
+		Link:  []interface{}{},
 	}
 	for i := range node.Link {
 		if node.Link[i] != nil {
@@ -490,8 +493,7 @@ func (node *mastNode) string(indent string, mast *Mast) (string, error) {
 			label = fmt.Sprintf("%v: %v", node.Key[i], node.Value[i])
 		}
 		linkStr := ""
-		switch ls := node.Link[i].(type) {
-		case contentHash:
+		if ls, ok := node.Link[i].(string); ok {
 			linkStr = fmt.Sprintf(" link=%v", ls)
 		}
 
@@ -581,7 +583,7 @@ func validateNode(node *mastNode, mast *Mast) {
 	}
 }
 
-func (m *Mast) mergeNodes(leftLink link, rightLink link) (link, error) {
+func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interface{}, error) {
 	if leftLink == nil {
 		return rightLink, nil
 	}
@@ -603,7 +605,7 @@ func (m *Mast) mergeNodes(leftLink link, rightLink link) (link, error) {
 	combined.Value = make([]interface{}, len(left.Value)+len(right.Value))
 	copy(combined.Value, left.Value)
 	copy(combined.Value[len(left.Value):], right.Value)
-	combined.Link = make([]link, len(left.Link)+len(right.Link)-1)
+	combined.Link = make([]interface{}, len(left.Link)+len(right.Link)-1)
 	copy(combined.Link, left.Link[0:len(left.Link)-1])
 	copy(combined.Link[len(left.Link):], right.Link[1:])
 	mergedLink, err := m.mergeNodes(left.Link[len(left.Link)-1], right.Link[0])
@@ -619,7 +621,7 @@ func (node *mastNode) copy() *mastNode {
 	newNode := mastNode{
 		make([]interface{}, len(node.Key)),
 		make([]interface{}, len(node.Value)),
-		make([]link, len(node.Link)),
+		make([]interface{}, len(node.Link)),
 	}
 	copy(newNode.Key, node.Key)
 	copy(newNode.Value, node.Value)

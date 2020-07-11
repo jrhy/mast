@@ -13,9 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	defaultGopterParameters = gopter.DefaultTestParameters()
-)
+var defaultGopterParameters = gopter.DefaultTestParameters()
 
 func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
 	return Mast{
@@ -46,7 +44,7 @@ func TestSplit(t *testing.T) {
 	node := mastNode{
 		Key:   []interface{}{10, 20, 30},
 		Value: []interface{}{"", "", ""},
-		Link:  []link{nil, nil, nil, nil},
+		Link:  []interface{}{nil, nil, nil, nil},
 	}
 	newLeftLink, newRightLink, err := split(&node, 15, &m)
 	require.NoError(t, err)
@@ -66,7 +64,7 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{50}, node.Key)
 	require.Equal(t, []interface{}{50}, node.Value)
-	require.Equal(t, []link{nil, nil}, node.Link)
+	require.Equal(t, []interface{}{nil, nil}, node.Link)
 	require.Equal(t, uint64(1), m.size)
 	require.Equal(t, uint8(0), m.height)
 	err = m.Insert(40, 40)
@@ -75,7 +73,7 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{40, 50}, node.Key)
 	require.Equal(t, []interface{}{40, 50}, node.Value)
-	require.Equal(t, []link{nil, nil, nil}, node.Link)
+	require.Equal(t, []interface{}{nil, nil, nil}, node.Link)
 	require.Equal(t, uint64(2), m.size)
 	require.Equal(t, uint8(0), m.height)
 
@@ -85,7 +83,7 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{40, 50, 60}, node.Key)
 	require.Equal(t, []interface{}{40, 50, 60}, node.Value)
-	require.Equal(t, []link{nil, nil, nil, nil}, node.Link)
+	require.Equal(t, []interface{}{nil, nil, nil, nil}, node.Link)
 	require.Equal(t, uint64(3), m.size)
 	require.Equal(t, uint8(0), m.height)
 
@@ -95,7 +93,7 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{40, 45, 50, 60}, node.Key)
 	require.Equal(t, []interface{}{40, 45, 50, 60}, node.Value)
-	require.Equal(t, []link{nil, nil, nil, nil, nil}, node.Link)
+	require.Equal(t, []interface{}{nil, nil, nil, nil, nil}, node.Link)
 	require.Equal(t, uint64(4), m.size)
 	require.Equal(t, uint8(0), m.height)
 }
@@ -610,6 +608,7 @@ func (me arbitraryLayerInt) Compare(other Key) int {
 	}
 	panic(fmt.Sprintf("can't compare with %T", other))
 }
+
 func (me arbitraryLayerInt) Layer(branchFactor uint) uint8 {
 	return me.AssignedLayer
 }

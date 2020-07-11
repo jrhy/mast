@@ -95,7 +95,7 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 	node.Value = make([]interface{}, len(oldNode.Value)-1)
 	copy(node.Value[:i], oldNode.Value[:i])
 	copy(node.Value[i:], oldNode.Value[i+1:])
-	node.Link = make([]link, len(oldNode.Link)-1)
+	node.Link = make([]interface{}, len(oldNode.Link)-1)
 	copy(node.Link[:i], oldNode.Link[:i])
 	copy(node.Link[i+1:], oldNode.Link[i+2:])
 	mergedLink, err := m.mergeNodes(oldNode.Link[i], oldNode.Link[i+1])
@@ -119,8 +119,8 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 	return nil
 }
 
-// DiffIter invokes the given callback (exactly once) for every
-// entry that is different between this and the given tree.
+// DiffIter invokes the given callback for every entry that is different between this
+// and the given tree.
 func (m *Mast) DiffIter(
 	oldMast *Mast,
 	f func(added, removed bool, key, addedValue, removedValue interface{}) (bool, error),
@@ -128,11 +128,11 @@ func (m *Mast) DiffIter(
 	return m.diff(oldMast, f, nil)
 }
 
-// DiffLinks invokes the given callback (maybe more than once)
-// for every node that is different between this and the given tree.
+// DiffLinks invokes the given callback for every node that is different between this
+// and the given tree.
 func (m *Mast) DiffLinks(
 	oldMast *Mast,
-	f func(removed bool, link link) (bool, error),
+	f func(removed bool, link interface{}) (bool, error),
 ) error {
 	return m.diff(oldMast, nil, f)
 }
@@ -150,8 +150,8 @@ func (m *Mast) flush() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m.root = contentHash(str)
-	return string(str), nil
+	m.root = str
+	return str, nil
 }
 
 // Get gets the value of the entry with the given key and stores it at the given value pointer. Returns false if the tree doesn't contain the given key.
@@ -249,15 +249,15 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 	copy(node.Value, oldValues[:i])
 	node.Value[i] = value
 	oldLinks := node.Link
-	node.Link = make([]link, len(oldLinks)+1)
+	node.Link = make([]interface{}, len(oldLinks)+1)
 	copy(node.Link, oldLinks[:i])
 	if i < len(node.Key) {
 		copy(node.Key[i+1:], oldKeys[i:])
 		copy(node.Value[i+1:], oldValues[i:])
 		copy(node.Link[i+2:], oldLinks[i+1:])
 	}
-	var leftLink link
-	var rightLink link
+	var leftLink interface{}
+	var rightLink interface{}
 	if oldLinks[i] != nil {
 		child, err := m.load(oldLinks[i])
 		if err != nil {
@@ -333,9 +333,9 @@ func (m *Mast) keys() ([]interface{}, error) {
 // LoadMast loads a tree from a remote store. The root is loaded
 // and verified; other nodes will be loaded on demand.
 func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
-	var link link
+	var link interface{}
 	if r.Link != nil {
-		link = contentHash(*r.Link)
+		link = *r.Link
 	} else {
 		link = emptyNodePointer()
 	}
@@ -394,7 +394,7 @@ func NewInMemory() Mast {
 
 // NewRoot creates an empty tree whose nodes will be persisted remotely according to remoteOptions.
 func NewRoot( /*config RemoteConfig,*/ remoteOptions *CreateRemoteOptions) *Root {
-	var branchFactor = uint(DefaultBranchFactor)
+	branchFactor := uint(DefaultBranchFactor)
 	if remoteOptions != nil && remoteOptions.BranchFactor > 0 {
 		branchFactor = remoteOptions.BranchFactor
 	}

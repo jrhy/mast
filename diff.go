@@ -3,15 +3,17 @@ package mast
 import "fmt"
 
 type iterItem struct {
-	considerLink link
+	considerLink interface{}
 	yield        entry
 }
 
 func (newMast *Mast) diff(
 	oldMast *Mast,
 	entryCb func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error),
-	linkCb func(removed bool, link link) (bool, error),
+	linkCb func(removed bool, link interface{}) (bool, error),
 ) error {
+	alreadyNotifiedOldLink := map[uint8]interface{}{}
+	alreadyNotifiedNewLink := map[uint8]interface{}{}
 	oldStack := newIterItemStack(iterItem{considerLink: oldMast.root})
 	newStack := newIterItemStack(iterItem{considerLink: newMast.root})
 	for {
@@ -29,7 +31,7 @@ func (newMast *Mast) diff(
 			return nil
 		} else if old == nil && new != nil {
 			if new.considerLink != nil {
-				if linkCb != nil {
+				if linkCb != nil && !newMast.alreadyNotified("new", alreadyNotifiedNewLink, new.considerLink) {
 					keepGoing, err := linkCb(false, new.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -56,7 +58,7 @@ func (newMast *Mast) diff(
 			}
 		} else if old != nil && new == nil {
 			if old.considerLink != nil {
-				if linkCb != nil {
+				if linkCb != nil && !oldMast.alreadyNotified("old", alreadyNotifiedOldLink, old.considerLink) {
 					keepGoing, err := linkCb(true, old.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -88,19 +90,23 @@ func (newMast *Mast) diff(
 						fmt.Printf("  old(consider) new(consider) and links differ\n")
 					}
 					if linkCb != nil {
-						keepGoing, err := linkCb(true, old.considerLink)
-						if err != nil {
-							return fmt.Errorf("callback: %w", err)
+						if !oldMast.alreadyNotified("old", alreadyNotifiedOldLink, old.considerLink) {
+							keepGoing, err := linkCb(true, old.considerLink)
+							if err != nil {
+								return fmt.Errorf("callback: %w", err)
+							}
+							if !keepGoing {
+								return nil
+							}
 						}
-						if !keepGoing {
-							return nil
-						}
-						keepGoing, err = linkCb(false, new.considerLink)
-						if err != nil {
-							return fmt.Errorf("callback: %w", err)
-						}
-						if !keepGoing {
-							return nil
+						if !newMast.alreadyNotified("new", alreadyNotifiedNewLink, new.considerLink) {
+							keepGoing, err := linkCb(false, new.considerLink)
+							if err != nil {
+								return fmt.Errorf("callback: %w", err)
+							}
+							if !keepGoing {
+								return nil
+							}
 						}
 					}
 					oldNode, err := oldMast.load(old.considerLink)
@@ -147,9 +153,8 @@ func (newMast *Mast) diff(
 						newStack.pushNode(newNode, newMast)
 					}
 				}
-
 			} else if old.considerLink != nil && new.considerLink == nil {
-				if linkCb != nil {
+				if linkCb != nil && !oldMast.alreadyNotified("old", alreadyNotifiedOldLink, old.considerLink) {
 					keepGoing, err := linkCb(true, old.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -165,7 +170,7 @@ func (newMast *Mast) diff(
 				oldStack.pushNode(oldNode, oldMast)
 				newStack.push(new)
 			} else if old.considerLink == nil && new.considerLink != nil {
-				if linkCb != nil {
+				if linkCb != nil && !newMast.alreadyNotified("new", alreadyNotifiedNewLink, new.considerLink) {
 					keepGoing, err := linkCb(false, new.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -226,6 +231,41 @@ func (newMast *Mast) diff(
 	}
 }
 
+func (m *Mast) alreadyNotified(name string, linkByHeight map[uint8]interface{}, link interface{}) bool {
+	path := []interface{}{}
+	myLink := link
+	var keyHeight uint8
+	for {
+		path = append(path, myLink)
+		node, err := m.load(myLink)
+		if err != nil {
+			return false
+		}
+		if len(node.Link) == 1 {
+			myLink = node.Link[0]
+			continue
+		}
+		key := node.Key[0]
+		keyHeight, err = m.keyLayer(key, m.branchFactor)
+		if err != nil {
+			return false
+		}
+		break
+	}
+	res := false
+	for i, l := range path {
+		if l != link {
+			continue
+		}
+		if linkByHeight[keyHeight+uint8(i)] == link {
+			res = true
+		} else {
+			linkByHeight[keyHeight+uint8(i)] = l
+		}
+	}
+	return res
+}
+
 type iterItemStack struct {
 	things []iterItem
 }
@@ -235,6 +275,7 @@ func newIterItemStack(item iterItem) iterItemStack {
 		[]iterItem{item},
 	}
 }
+
 func (stack *iterItemStack) pop() *iterItem {
 	if len(stack.things) > 0 {
 		popped := stack.things[len(stack.things)-1]
@@ -243,6 +284,7 @@ func (stack *iterItemStack) pop() *iterItem {
 	}
 	return nil
 }
+
 func (stack *iterItemStack) pushNode(node *mastNode, mast *Mast) {
 	for n := range node.Key {
 		i := len(node.Key) - n
@@ -251,14 +293,17 @@ func (stack *iterItemStack) pushNode(node *mastNode, mast *Mast) {
 	}
 	stack.pushLink(node.Link[0])
 }
-func (stack *iterItemStack) pushLink(link link) {
+
+func (stack *iterItemStack) pushLink(link interface{}) {
 	if link != nil {
 		stack.push(&iterItem{considerLink: link})
 	}
 }
+
 func (stack *iterItemStack) pushYield(node *mastNode, i int) {
 	stack.push(&iterItem{yield: entry{node.Key[i], node.Value[i]}})
 }
+
 func (stack *iterItemStack) push(item *iterItem) {
 	stack.things = append(stack.things, *item)
 }

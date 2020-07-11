@@ -6,16 +6,10 @@ import (
 	"reflect"
 )
 
-type contentHash string
-
-type link interface {
-	Load(m *Mast) (*mastNode, error)
-}
-
 type stringNodeT = struct {
 	Key   []json.RawMessage
 	Value []json.RawMessage
-	Link  []contentHash `json:",omitempty"`
+	Link  []string `json:",omitempty"`
 }
 
 func defaultUnmarshal(bytes []byte, i interface{}) error {
@@ -26,12 +20,19 @@ func defaultMarshal(i interface{}) ([]byte, error) {
 	return json.Marshal(i)
 }
 
-func (m *Mast) load(link link) (*mastNode, error) {
-	return link.Load(m)
+func (m *Mast) load(link interface{}) (*mastNode, error) {
+	switch l := link.(type) {
+	case string:
+		return m.loadPersisted(l)
+	case *mastNode:
+		return l, nil
+	default:
+		return nil, fmt.Errorf("unknown link type %T", l)
+	}
 }
 
-func (l contentHash) Load(m *Mast) (*mastNode, error) {
-	nodeBytes, err := m.persist.Load(string(l))
+func (m *Mast) loadPersisted(l string) (*mastNode, error) {
+	nodeBytes, err := m.persist.Load(l)
 	if err != nil {
 		return nil, fmt.Errorf("failed loading %s: %w", l, err)
 	}
@@ -49,7 +50,7 @@ func (l contentHash) Load(m *Mast) (*mastNode, error) {
 	node := mastNode{
 		make([]interface{}, len(stringNode.Key)),
 		make([]interface{}, len(stringNode.Value)),
-		make([]link, len(stringNode.Key)+1),
+		make([]interface{}, len(stringNode.Key)+1),
 	}
 	for i := 0; i < len(stringNode.Key); i++ {
 		aType := reflect.TypeOf(m.zeroKey)
@@ -91,11 +92,7 @@ func (l contentHash) Load(m *Mast) (*mastNode, error) {
 	return &node, nil
 }
 
-func (node *mastNode) Load(m *Mast) (*mastNode, error) {
-	return node, nil
-}
-
-func (m *Mast) store(node *mastNode) (link, error) {
+func (m *Mast) store(node *mastNode) (interface{}, error) {
 	validateNode(node, m)
 	if len(node.Link) == 1 && node.Link[0] == nil {
 		return nil, fmt.Errorf("bug! shouldn't be storing empty nodes")

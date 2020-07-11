@@ -17,6 +17,7 @@ func (ims inMemoryStore) Store(key string, value []byte) error {
 	ims.entries[key] = value
 	return nil
 }
+
 func (ims inMemoryStore) Load(key string) ([]byte, error) {
 	value, ok := ims.entries[key]
 	if !ok {

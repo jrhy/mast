@@ -28,11 +28,15 @@ type xentry struct {
 	Value uint
 }
 
-const uimax = 99_999
-const nSnapshots = 5
+const (
+	uimax      = 99_999
+	nSnapshots = 5
+)
 
-var cmdCount = 0
-var debug = false
+var (
+	cmdCount = 0
+	debug    = false
+)
 
 func progress(i interface{}) {
 	if debug {
@@ -109,14 +113,17 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 		new.dump()
 	*/
 	newLinks := map[string]struct{}{}
+	newLinks1 := map[string]struct{}{}
+	newLinks2 := map[string]struct{}{}
 	// show why the union of these two diffs isn't the same as new.DiffLinks(&empty)
 	err = old.DiffLinks(&empty,
-		func(removed bool, link link) (bool, error) {
+		func(removed bool, link interface{}) (bool, error) {
 			if !removed {
-				ls := string(link.(contentHash))
-				if _, alreadyIn := newLinks[ls]; alreadyIn {
-					// fmt.Printf("link %v was already noted\n", ls)
+				ls := link.(string)
+				if _, alreadyIn := newLinks1[ls]; alreadyIn {
+					return false, fmt.Errorf("link %v was already noted", ls)
 				}
+				newLinks1[ls] = struct{}{}
 				newLinks[ls] = struct{}{}
 			}
 			return true, nil
@@ -125,13 +132,14 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 		return fmt.Errorf("diffLinks old: %w", err)
 	}
 	err = new.DiffLinks(old,
-		func(removed bool, link link) (bool, error) {
+		func(removed bool, link interface{}) (bool, error) {
 			if !removed {
-				ls := string(link.(contentHash))
-				if _, alreadyIn := newLinks[ls]; alreadyIn {
-					// fmt.Printf("link %v was already noted\n", ls)
+				ls := link.(string)
+				if _, alreadyIn := newLinks2[ls]; alreadyIn {
+					return false, fmt.Errorf("link %v was already noted", ls)
 				}
 				newLinks[ls] = struct{}{}
+				newLinks2[ls] = struct{}{}
 			}
 			return true, nil
 		})
@@ -172,10 +180,11 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 	}
 	return diffs
 }
+
 func showLinkDiff(desc string, old *Mast, new *Mast) {
 	fmt.Printf("%s:\n", desc)
 	new.DiffLinks(old,
-		func(removed bool, link link) (bool, error) {
+		func(removed bool, link interface{}) (bool, error) {
 			verb := "added"
 			if removed {
 				verb = "removed"
@@ -184,12 +193,15 @@ func showLinkDiff(desc string, old *Mast, new *Mast) {
 			return true, nil
 		})
 }
+
 func (n diffLinksCommand) NextState(state commands.State) commands.State {
 	return state
 }
+
 func (n diffLinksCommand) PreCondition(state commands.State) bool {
 	return state.(*expected).snapshot[int(n)%nSnapshots] != nil
 }
+
 func (n diffLinksCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	diffs := map[bool]map[uint]uint{
 		false: {},
@@ -231,6 +243,7 @@ func (n diffLinksCommand) PostCondition(state commands.State, result commands.Re
 	progress(n)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (n diffLinksCommand) String() string {
 	slot := int(n) % nSnapshots
 	return fmt.Sprintf("DiffLinks(%d)", slot)
@@ -265,12 +278,15 @@ func (n diffCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).cmdCount++
 	return diffs
 }
+
 func (n diffCommand) NextState(state commands.State) commands.State {
 	return state
 }
+
 func (n diffCommand) PreCondition(state commands.State) bool {
 	return state.(*expected).snapshot[int(n)%nSnapshots] != nil
 }
+
 func (n diffCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	diffs := map[bool]map[uint]uint{
 		false: {},
@@ -312,6 +328,7 @@ func (n diffCommand) PostCondition(state commands.State, result commands.Result)
 	progress(n)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (n diffCommand) String() string {
 	slot := int(n) % nSnapshots
 	return fmt.Sprintf("Diff(%d)", slot)
@@ -329,6 +346,7 @@ func (n snapshotCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).snapshot[slot] = &snapshot
 	return nil
 }
+
 func (n snapshotCommand) NextState(state commands.State) commands.State {
 	s := state.(*expected)
 	slot := int(n) % nSnapshots
@@ -339,9 +357,11 @@ func (n snapshotCommand) NextState(state commands.State) commands.State {
 	s.snapshot[slot] = snapshot
 	return s
 }
+
 func (n snapshotCommand) PreCondition(state commands.State) bool {
 	return true
 }
+
 func (n snapshotCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	switch result := result.(type) {
 	case error:
@@ -351,6 +371,7 @@ func (n snapshotCommand) PostCondition(state commands.State, result commands.Res
 	progress(n)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (n snapshotCommand) String() string {
 	slot := int(n) % nSnapshots
 	return fmt.Sprintf("Snapshot(%d)", slot)
@@ -373,12 +394,15 @@ func (value getCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).cmdCount++
 	return val
 }
+
 func (value getCommand) NextState(state commands.State) commands.State {
 	return state
 }
+
 func (value getCommand) PreCondition(state commands.State) bool {
 	return true
 }
+
 func (value getCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	expected, ok := state.(*expected).entries[uint(value)]
 	if !ok && result == nil || expected == result {
@@ -393,6 +417,7 @@ func (value getCommand) PostCondition(state commands.State, result commands.Resu
 	fmt.Printf("getCommandPostCondition: (value=%v) expected=%T %v actual=%T %v\n", value, expected, expected, result, result)
 	return &gopter.PropResult{Status: gopter.PropFalse}
 }
+
 func (value getCommand) String() string {
 	return fmt.Sprintf("Get(%d)", value)
 }
@@ -412,14 +437,17 @@ func (value deleteCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).cmdCount++
 	return err
 }
+
 func (value deleteCommand) NextState(state commands.State) commands.State {
 	delete(state.(*expected).entries, uint(value))
 	return state
 }
+
 func (value deleteCommand) PreCondition(state commands.State) bool {
 	existingValue, present := state.(*expected).entries[uint(value)]
 	return present && existingValue == uint(value)
 }
+
 func (value deleteCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	if result != nil {
 		fmt.Printf("deletePostCondition: %v\n", result)
@@ -428,6 +456,7 @@ func (value deleteCommand) PostCondition(state commands.State, result commands.R
 	progress(value)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (value deleteCommand) String() string {
 	return fmt.Sprintf("Delete(%d,%d)", value, value)
 }
@@ -451,6 +480,7 @@ func (value deleteNthCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).cmdCount++
 	return nil
 }
+
 func (value deleteNthCommand) NextState(state commands.State) commands.State {
 	s := state.(*expected)
 	var keys []int
@@ -462,10 +492,12 @@ func (value deleteNthCommand) NextState(state commands.State) commands.State {
 	delete(s.entries, uint(nthKey))
 	return state
 }
+
 func (value deleteNthCommand) PreCondition(state commands.State) bool {
 	s := state.(*expected)
 	return int(value) < len(s.entries)
 }
+
 func (value deleteNthCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	if result != nil {
 		fmt.Printf("deleteNthPostCondition: %v\n", result)
@@ -474,6 +506,7 @@ func (value deleteNthCommand) PostCondition(state commands.State, result command
 	progress(value)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (value deleteNthCommand) String() string {
 	return fmt.Sprintf("DeleteNth(%d)", value)
 }
@@ -492,16 +525,19 @@ func (value insertCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).cmdCount++
 	return nil
 }
+
 func (value insertCommand) NextState(state commands.State) commands.State {
 	s := state.(*expected)
 	s.entries[uint(value)] = uint(value)
 	return state
 }
+
 func (value insertCommand) PreCondition(state commands.State) bool {
 	s := state.(*expected)
 	existing, present := s.entries[uint(value)]
 	return !present || existing == uint(value)
 }
+
 func (value insertCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	if result != nil {
 		fmt.Printf("insertCommandPostCondition: %v\n", result)
@@ -510,6 +546,7 @@ func (value insertCommand) PostCondition(state commands.State, result commands.R
 	progress(value)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (value insertCommand) String() string {
 	return fmt.Sprintf("Insert(%d,%d)", value, value)
 }
@@ -528,15 +565,18 @@ func (value updateCommand) Run(s commands.SystemUnderTest) commands.Result {
 	s.(*system).cmdCount++
 	return nil
 }
+
 func (value updateCommand) NextState(state commands.State) commands.State {
 	state.(*expected).entries[uint(value)] = uint(value)
 	return state
 }
+
 func (value updateCommand) PreCondition(state commands.State) bool {
 	s := state.(*expected)
 	existing, present := s.entries[uint(value)]
 	return present && existing != uint(value)
 }
+
 func (value updateCommand) PostCondition(state commands.State, result commands.Result) *gopter.PropResult {
 	if result != nil {
 		fmt.Printf("updateCommandPostCondition: %v\n", result)
@@ -545,6 +585,7 @@ func (value updateCommand) PostCondition(state commands.State, result commands.R
 	progress(value)
 	return &gopter.PropResult{Status: gopter.PropTrue}
 }
+
 func (value updateCommand) String() string {
 	return fmt.Sprintf("Update(%d,%d)", value, value)
 }
@@ -576,55 +617,57 @@ func uintCommandGen(toCommand func(uint) commands.Command, fromCommand func(inte
 	})
 }
 
-var maxHeight uint8 = 0
-var mastCommands = &commands.ProtoCommands{
-	NewSystemUnderTestFunc: func(initialState commands.State) commands.SystemUnderTest {
-		m := newTestTree(uint(0), uint(0))
-		m.branchFactor = 3
-		m.growAfterSize = 3
-		for key, value := range initialState.(*expected).entries {
-			err := m.Insert(uint(key), uint(value))
-			if err != nil {
-				return err
+var (
+	maxHeight    uint8 = 0
+	mastCommands       = &commands.ProtoCommands{
+		NewSystemUnderTestFunc: func(initialState commands.State) commands.SystemUnderTest {
+			m := newTestTree(uint(0), uint(0))
+			m.branchFactor = 3
+			m.growAfterSize = 3
+			for key, value := range initialState.(*expected).entries {
+				err := m.Insert(uint(key), uint(value))
+				if err != nil {
+					return err
+				}
 			}
-		}
-		progress("NewSystem")
-		return &system{&m, make([]*Mast, nSnapshots), 0}
-	},
-	DestroySystemUnderTestFunc: func(s commands.SystemUnderTest) {
-		mast := s.(*system).m
-		if mast.height > maxHeight {
-			maxHeight = mast.height
-		}
-		cmdCount += s.(*system).cmdCount
-	},
-	InitialStateGen: gen.MapOf(gen.UIntRange(0, uimax), gen.UIntRange(0, uimax)).Map(func(entries map[uint]uint) *expected {
-		return &expected{
-			entries:  entries,
-			snapshot: make([]map[uint]uint, nSnapshots),
-		}
-	}),
-	InitialPreConditionFunc: func(state commands.State) bool {
-		_ = state.(*expected)
-		return true
-	},
-	GenCommandFunc: func(state commands.State) gopter.Gen {
-		return gen.Weighted(
-			[]gen.WeightedGen{
-				{Weight: 100, Gen: genDelete},
-				{Weight: 100, Gen: genDeleteNth},
-				{Weight: 1, Gen: genDiff},
-				{Weight: 1, Gen: genDiffLinks},
-				{Weight: 100, Gen: genGet},
-				{Weight: 100, Gen: genInsert},
-				{Weight: 5, Gen: genSnapshot},
-				{Weight: 100, Gen: genUpdate},
-				{Weight: 1, Gen: gen.Const(FlushCommand)},
-				{Weight: 100, Gen: gen.Const(SizeCommand)},
-			},
-		)
-	},
-}
+			progress("NewSystem")
+			return &system{&m, make([]*Mast, nSnapshots), 0}
+		},
+		DestroySystemUnderTestFunc: func(s commands.SystemUnderTest) {
+			mast := s.(*system).m
+			if mast.height > maxHeight {
+				maxHeight = mast.height
+			}
+			cmdCount += s.(*system).cmdCount
+		},
+		InitialStateGen: gen.MapOf(gen.UIntRange(0, uimax), gen.UIntRange(0, uimax)).Map(func(entries map[uint]uint) *expected {
+			return &expected{
+				entries:  entries,
+				snapshot: make([]map[uint]uint, nSnapshots),
+			}
+		}),
+		InitialPreConditionFunc: func(state commands.State) bool {
+			_ = state.(*expected)
+			return true
+		},
+		GenCommandFunc: func(state commands.State) gopter.Gen {
+			return gen.Weighted(
+				[]gen.WeightedGen{
+					{Weight: 100, Gen: genDelete},
+					{Weight: 100, Gen: genDeleteNth},
+					{Weight: 1, Gen: genDiff},
+					{Weight: 1, Gen: genDiffLinks},
+					{Weight: 100, Gen: genGet},
+					{Weight: 100, Gen: genInsert},
+					{Weight: 5, Gen: genSnapshot},
+					{Weight: 100, Gen: genUpdate},
+					{Weight: 1, Gen: gen.Const(FlushCommand)},
+					{Weight: 100, Gen: gen.Const(SizeCommand)},
+				},
+			)
+		},
+	}
+)
 
 func TestExerciser(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
