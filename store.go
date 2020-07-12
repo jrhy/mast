@@ -12,8 +12,10 @@ type stringNodeT = struct {
 	Link  []string `json:",omitempty"`
 }
 
-var defaultUnmarshal = json.Unmarshal
-var defaultMarshal = json.Marshal
+var (
+	defaultUnmarshal = json.Unmarshal
+	defaultMarshal   = json.Marshal
+)
 
 func (m *Mast) load(link interface{}) (*mastNode, error) {
 	switch l := link.(type) {
