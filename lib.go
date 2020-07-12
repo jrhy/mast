@@ -12,20 +12,21 @@ const DefaultBranchFactor = 16
 
 // Mast encapsulates data and parameters for the in-memory portion of a Merkle Search Tree.
 type Mast struct {
-	root            interface{}
-	zeroKey         interface{}
-	zeroValue       interface{}
-	keyCompare      func(interface{}, interface{}) (int, error)
-	keyLayer        func(key interface{}, branchFactor uint) (uint8, error)
-	marshal         func(interface{}) ([]byte, error)
-	unmarshal       func([]byte, interface{}) error
-	branchFactor    uint
-	height          uint8
-	size            uint64
-	growAfterSize   uint64
-	shrinkBelowSize uint64
-	persist         Persist
-	debug           bool
+	root                           interface{}
+	zeroKey                        interface{}
+	zeroValue                      interface{}
+	keyCompare                     func(interface{}, interface{}) (int, error)
+	keyLayer                       func(key interface{}, branchFactor uint) (uint8, error)
+	unmarshalerUsesRegisteredTypes bool
+	marshal                        func(interface{}) ([]byte, error)
+	unmarshal                      func([]byte, interface{}) error
+	branchFactor                   uint
+	height                         uint8
+	size                           uint64
+	growAfterSize                  uint64
+	shrinkBelowSize                uint64
+	persist                        Persist
+	debug                          bool
 }
 
 type mastNode struct {
@@ -228,7 +229,7 @@ func uint8min(x uint8, y uint8) uint8 {
 	return y
 }
 
-func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, error)) (string, error) {
+func (node *mastNode) store(persist Persist, marshal func(interface{}) ([]byte, error)) (string, error) {
 	linkCount := 0
 	for i, il := range node.Link {
 		if il == nil {
@@ -239,7 +240,7 @@ func (node *mastNode) flush(persist Persist, marshal func(interface{}) ([]byte, 
 		case string:
 			break
 		case *mastNode:
-			newLink, err := l.flush(persist, marshal)
+			newLink, err := l.store(persist, marshal)
 			if err != nil {
 				return "", fmt.Errorf("flushing: %w", err)
 			}

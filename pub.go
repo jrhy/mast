@@ -35,7 +35,15 @@ type RemoteConfig struct {
 
 	// StoreImmutablePartsWith is used to store and load serialized nodes.
 	StoreImmutablePartsWith Persist
-	Unmarshal               func([]byte, interface{}) error
+
+	// Unmarshal function, defaults to JSON
+	Unmarshal func([]byte, interface{}) error
+
+	// Marshal function, defaults to JSON
+	Marshal func(interface{}) ([]byte, error)
+
+	// UnmarshalerUsesRegisteredTypes indicates that the unmarshaler will know how to deserialize an interface{} for a key/value in an entry.  By default, JSON decoding doesn't do this, so is done in two stages, the first to a JsonRawMessage, the second to the actual key/value type.
+	UnmarshalerUsesRegisteredTypes bool
 }
 
 // Root identifies a version of a tree whose nodes are accessible in the persistent store.
@@ -146,7 +154,7 @@ func (m *Mast) flush() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("loading root: %w", err)
 	}
-	str, err := node.flush(m.persist, m.marshal)
+	str, err := node.store(m.persist, m.marshal)
 	if err != nil {
 		return "", err
 	}
@@ -344,21 +352,25 @@ func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
 		shrinkSize *= uint64(r.BranchFactor)
 	}
 	m := Mast{
-		root:            link,
-		zeroKey:         config.KeysLike,
-		zeroValue:       config.ValuesLike,
-		unmarshal:       config.Unmarshal,
-		marshal:         defaultMarshal,
-		keyCompare:      defaultComparer,
-		keyLayer:        defaultLayer,
-		branchFactor:    r.BranchFactor,
-		height:          r.Height,
-		persist:         config.StoreImmutablePartsWith,
-		shrinkBelowSize: shrinkSize,
-		growAfterSize:   shrinkSize * uint64(r.BranchFactor),
+		root:                           link,
+		zeroKey:                        config.KeysLike,
+		zeroValue:                      config.ValuesLike,
+		unmarshal:                      config.Unmarshal,
+		marshal:                        config.Marshal,
+		unmarshalerUsesRegisteredTypes: config.UnmarshalerUsesRegisteredTypes,
+		keyCompare:                     defaultComparer,
+		keyLayer:                       defaultLayer,
+		branchFactor:                   r.BranchFactor,
+		height:                         r.Height,
+		persist:                        config.StoreImmutablePartsWith,
+		shrinkBelowSize:                shrinkSize,
+		growAfterSize:                  shrinkSize * uint64(r.BranchFactor),
 	}
 	if config.Unmarshal == nil {
 		m.unmarshal = defaultUnmarshal
+	}
+	if config.Marshal == nil {
+		m.marshal = defaultMarshal
 	}
 	err := m.checkRoot()
 	if err != nil {
