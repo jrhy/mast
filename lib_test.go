@@ -473,20 +473,6 @@ func TestInterestingZeroCase(t *testing.T) {
 	checkRecall(t, recallCase)
 }
 
-func BenchmarkStdMap(b *testing.B) {
-	m := map[int]int{}
-	for i := 0; i < b.N; i++ {
-		m[i] = i
-	}
-}
-
-func BenchmarkInsert1(b *testing.B) {
-	m := newTestTree(0, "")
-	for i := 0; i < b.N; i++ {
-		m.Insert(i, i)
-	}
-}
-
 func TestDiffTrivial(t *testing.T) {
 	m := newTestTree(0, 0)
 	m.Insert(1, 1)
