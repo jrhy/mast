@@ -1,9 +1,12 @@
 package mast
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"github.com/minio/blake2b-simd"
 )
 
 type stringNodeT = struct {
@@ -29,9 +32,14 @@ func (m *Mast) load(link interface{}) (*mastNode, error) {
 }
 
 func (m *Mast) loadPersisted(l string) (*mastNode, error) {
+	if m.nodeCache != nil {
+		if node, ok := m.nodeCache.Get(l); ok {
+			return node.(*mastNode), nil
+		}
+	}
 	nodeBytes, err := m.persist.Load(l)
 	if err != nil {
-		return nil, fmt.Errorf("failed loading %s: %w", l, err)
+		return nil, fmt.Errorf("persist load %s: %w", l, err)
 	}
 	var node mastNode
 	if !m.unmarshalerUsesRegisteredTypes {
@@ -88,7 +96,7 @@ func (m *Mast) loadPersisted(l string) (*mastNode, error) {
 	} else {
 		err = m.unmarshal(nodeBytes, &node)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshaling: %w", err)
+			return nil, fmt.Errorf("unmarshal: %w", err)
 		}
 		if node.Link == nil || len(node.Link) == 0 {
 			node.Link = make([]interface{}, len(node.Key)+1)
@@ -99,6 +107,9 @@ func (m *Mast) loadPersisted(l string) (*mastNode, error) {
 	if m.debug {
 		fmt.Printf("loaded node %s->%v\n", l, node)
 	}
+	if m.nodeCache != nil {
+		m.nodeCache.Add(l, &node)
+	}
 	return &node, nil
 }
 
@@ -108,4 +119,50 @@ func (m *Mast) store(node *mastNode) (interface{}, error) {
 		return nil, fmt.Errorf("bug! shouldn't be storing empty nodes")
 	}
 	return node, nil
+}
+
+func (node *mastNode) store(persist Persist, cache NodeCache, marshal func(interface{}) ([]byte, error)) (string, error) {
+	linkCount := 0
+	for i, il := range node.Link {
+		if il == nil {
+			continue
+		}
+		linkCount++
+		switch l := il.(type) {
+		case string:
+			break
+		case *mastNode:
+			newLink, err := l.store(persist, cache, marshal)
+			if err != nil {
+				return "", fmt.Errorf("flush: %w", err)
+			}
+			node.Link[i] = newLink
+		default:
+			return "", fmt.Errorf("don't know how to flush link of type %T", l)
+		}
+	}
+	trimmed := *node
+	if linkCount == 0 {
+		trimmed.Link = nil
+	}
+	encoded, err := marshal(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("marshal: %w", err)
+	}
+	hashBytes := blake2b.Sum256(encoded)
+	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
+	if cache != nil {
+		if cache.Contains(hash) {
+			return hash, nil
+		}
+	}
+	err = persist.Store(hash, encoded)
+	if err != nil {
+		return "", fmt.Errorf("persist store: %w", err)
+	}
+	if cache != nil {
+		cache.Add(hash, node)
+	}
+	// fmt.Printf("%s->%s\n", hash, encoded)
+	return hash, nil
 }

@@ -44,6 +44,9 @@ type RemoteConfig struct {
 
 	// UnmarshalerUsesRegisteredTypes indicates that the unmarshaler will know how to deserialize an interface{} for a key/value in an entry.  By default, JSON decoding doesn't do this, so is done in two stages, the first to a JsonRawMessage, the second to the actual key/value type.
 	UnmarshalerUsesRegisteredTypes bool
+
+	// NodeCache caches deserialized nodes and may be shared across multiple trees.
+	NodeCache NodeCache
 }
 
 // Root identifies a version of a tree whose nodes are accessible in the persistent store.
@@ -148,13 +151,13 @@ func (m *Mast) DiffLinks(
 // flush serializes changes (new nodes) into the persistent store.
 func (m *Mast) flush() (string, error) {
 	if m.persist == nil {
-		return "", fmt.Errorf("set mast.Persist to a persistence mechanism")
+		return "", fmt.Errorf("no persistence mechanism set; set RemoteConfig.StoreImmutablePartsWith")
 	}
 	node, err := m.load(m.root)
 	if err != nil {
-		return "", fmt.Errorf("loading root: %w", err)
+		return "", fmt.Errorf("load root: %w", err)
 	}
-	str, err := node.store(m.persist, m.marshal)
+	str, err := node.store(m.persist, m.nodeCache, m.marshal)
 	if err != nil {
 		return "", err
 	}
@@ -365,6 +368,7 @@ func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
 		persist:                        config.StoreImmutablePartsWith,
 		shrinkBelowSize:                shrinkSize,
 		growAfterSize:                  shrinkSize * uint64(r.BranchFactor),
+		nodeCache:                      config.NodeCache,
 	}
 	if config.Unmarshal == nil {
 		m.unmarshal = defaultUnmarshal

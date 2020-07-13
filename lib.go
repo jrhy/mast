@@ -1,10 +1,7 @@
 package mast
 
 import (
-	"encoding/base64"
 	"fmt"
-
-	"golang.org/x/crypto/blake2b"
 )
 
 // DefaultBranchFactor is how many entries per node a tree will normally have.
@@ -27,6 +24,7 @@ type Mast struct {
 	shrinkBelowSize                uint64
 	persist                        Persist
 	debug                          bool
+	nodeCache                      NodeCache
 }
 
 type mastNode struct {
@@ -227,44 +225,6 @@ func uint8min(x uint8, y uint8) uint8 {
 		return x
 	}
 	return y
-}
-
-func (node *mastNode) store(persist Persist, marshal func(interface{}) ([]byte, error)) (string, error) {
-	linkCount := 0
-	for i, il := range node.Link {
-		if il == nil {
-			continue
-		}
-		linkCount++
-		switch l := il.(type) {
-		case string:
-			break
-		case *mastNode:
-			newLink, err := l.store(persist, marshal)
-			if err != nil {
-				return "", fmt.Errorf("flushing: %w", err)
-			}
-			node.Link[i] = newLink
-		default:
-			return "", fmt.Errorf("don't know how to flush link of type %T", l)
-		}
-	}
-	trimmed := *node
-	if linkCount == 0 {
-		trimmed.Link = nil
-	}
-	encoded, err := marshal(trimmed)
-	if err != nil {
-		return "", fmt.Errorf("encoding: %w", err)
-	}
-	hashBytes := blake2b.Sum256(encoded)
-	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
-	err = persist.Store(hash, encoded)
-	if err != nil {
-		return "", fmt.Errorf("storing: %w", err)
-	}
-	// fmt.Printf("%s->%s\n", hash, encoded)
-	return hash, nil
 }
 
 func emptyNode() mastNode {

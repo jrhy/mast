@@ -18,9 +18,10 @@ type expected struct {
 }
 
 type system struct {
-	m        *Mast
-	snapshot []*Mast
-	cmdCount int
+	m         *Mast
+	snapshot  []*Mast
+	cmdCount  int
+	nodeCache NodeCache
 }
 
 type xentry struct {
@@ -631,7 +632,7 @@ var (
 				}
 			}
 			progress("NewSystem")
-			return &system{&m, make([]*Mast, nSnapshots), 0}
+			return &system{&m, make([]*Mast, nSnapshots), 0, NewNodeCache(500)}
 		},
 		DestroySystemUnderTestFunc: func(s commands.SystemUnderTest) {
 			mast := s.(*system).m
