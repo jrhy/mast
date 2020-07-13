@@ -9,8 +9,8 @@ import (
 type Key interface {
 	// Layer can deterministically compute its ideal layer (distance from leaves) in a tree with the given branch factor.
 	Layer(branchFactor uint) uint8
-	// Compare sorts entry keys.
-	Compare(Key) int
+	// Order returns -1 if the argument is less than than this one, 1 if greater, and 0 if equal.
+	Order(Key) int
 }
 
 var crcTable *crc64.Table
@@ -19,11 +19,11 @@ func init() {
 	crcTable = crc64.MakeTable(crc64.ECMA)
 }
 
-func defaultComparer(i interface{}, i2 interface{}) (int, error) {
+func defaultOrder(i interface{}, i2 interface{}) (int, error) {
 	switch v := i.(type) {
 	case Key:
 		if v2, ok := i2.(Key); ok {
-			return v.Compare(v2), nil
+			return v.Order(v2), nil
 		}
 	case string:
 		if v2, ok := i2.(string); ok {
@@ -71,7 +71,7 @@ func defaultComparer(i interface{}, i2 interface{}) (int, error) {
 			return 0, nil
 		}
 	}
-	return 0, fmt.Errorf("don't know how to compare %T with %T; set MaST.keyComparer or implement Comparable", i, i2)
+	return 0, fmt.Errorf("don't know how to compare %T with %T; set Mast.keyOrder or implement Key interface", i, i2)
 }
 
 func defaultLayer(i interface{}, branchFactor uint) (uint8, error) {

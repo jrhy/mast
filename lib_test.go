@@ -24,7 +24,7 @@ func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),
 		persist:         NewInMemoryStore(),
-		keyCompare:      defaultComparer,
+		keyOrder:        defaultOrder,
 		keyLayer:        defaultLayer,
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
@@ -588,7 +588,7 @@ type arbitraryLayerInt struct {
 	AssignedLayer uint8
 }
 
-func (me arbitraryLayerInt) Compare(other Key) int {
+func (me arbitraryLayerInt) Order(other Key) int {
 	if otherArbitraryLayerInt, ok := other.(arbitraryLayerInt); ok {
 		return me.Key - otherArbitraryLayerInt.Key
 	}

@@ -88,7 +88,7 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 		i == len(node.Key) {
 		return fmt.Errorf("key %v not present in tree", key)
 	}
-	cmp, err := m.keyCompare(node.Key[i], key)
+	cmp, err := m.keyOrder(node.Key[i], key)
 	if err != nil {
 		return fmt.Errorf("keyCompare: %w", err)
 	}
@@ -190,7 +190,7 @@ func (m *Mast) Get(k interface{}, value interface{}) (bool, error) {
 		options.targetLayer != options.currentHeight {
 		return false, nil
 	}
-	cmp, err := m.keyCompare(node.Key[i], k)
+	cmp, err := m.keyOrder(node.Key[i], k)
 	if err != nil {
 		return false, fmt.Errorf("keyCompare: %w", err)
 	}
@@ -236,7 +236,7 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 		panic("dunno why we didn't land in the right layer")
 	}
 	if i < len(node.Key) {
-		cmp, err := m.keyCompare(node.Key[i], key)
+		cmp, err := m.keyOrder(node.Key[i], key)
 		if err != nil {
 			return fmt.Errorf("keyCompare: %w", err)
 		}
@@ -361,7 +361,7 @@ func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
 		unmarshal:                      config.Unmarshal,
 		marshal:                        config.Marshal,
 		unmarshalerUsesRegisteredTypes: config.UnmarshalerUsesRegisteredTypes,
-		keyCompare:                     defaultComparer,
+		keyOrder:                       defaultOrder,
 		keyLayer:                       defaultLayer,
 		branchFactor:                   r.BranchFactor,
 		height:                         r.Height,
@@ -401,7 +401,7 @@ func NewInMemory() Mast {
 		branchFactor:    DefaultBranchFactor,
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),
-		keyCompare:      defaultComparer,
+		keyOrder:        defaultOrder,
 		keyLayer:        defaultLayer,
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,

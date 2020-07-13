@@ -12,7 +12,7 @@ type Mast struct {
 	root                           interface{}
 	zeroKey                        interface{}
 	zeroValue                      interface{}
-	keyCompare                     func(interface{}, interface{}) (int, error)
+	keyOrder                       func(interface{}, interface{}) (int, error)
 	keyLayer                       func(key interface{}, branchFactor uint) (uint8, error)
 	unmarshalerUsesRegisteredTypes bool
 	marshal                        func(interface{}) ([]byte, error)
@@ -71,7 +71,7 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 	var splitIndex int
 	var err error
 	for splitIndex = 0; splitIndex < len(node.Key); splitIndex++ {
-		cmp, err := mast.keyCompare(node.Key[splitIndex], key)
+		cmp, err := mast.keyOrder(node.Key[splitIndex], key)
 		if err != nil {
 			return nil, nil, fmt.Errorf("keyCompare: %w", err)
 		}
@@ -173,7 +173,7 @@ func (node *mastNode) findNode(m *Mast, key interface{}, options *findOptions) (
 			// going right
 			cmp = 1
 		} else {
-			cmp, err = m.keyCompare(node.Key[i], key)
+			cmp, err = m.keyOrder(node.Key[i], key)
 			if err != nil {
 				return nil, 0, fmt.Errorf("keyCompare: %w", err)
 			}
@@ -428,7 +428,7 @@ func (m *Mast) contains(key interface{}) (bool, error) {
 		options.targetLayer != options.currentHeight {
 		return false, nil
 	}
-	cmp, err := m.keyCompare(node.Key[i], key)
+	cmp, err := m.keyOrder(node.Key[i], key)
 	if err != nil {
 		return false, fmt.Errorf("keyCompare: %w", err)
 	}
@@ -522,7 +522,7 @@ func (node *mastNode) iter(f func(interface{}, interface{}) error, mast *Mast) e
 
 func validateNode(node *mastNode, mast *Mast) {
 	for i := 0; i < len(node.Key)-1; i++ {
-		cmp, err := mast.keyCompare(node.Key[0], node.Key[1])
+		cmp, err := mast.keyOrder(node.Key[0], node.Key[1])
 		if err != nil {
 			panic(err)
 		}
@@ -602,12 +602,12 @@ func (m *Mast) checkRoot() error {
 	var last interface{}
 	for i, key := range node.Key {
 		if i > 0 {
-			cmp, err := m.keyCompare(last, key)
+			cmp, err := m.keyOrder(last, key)
 			if err != nil {
-				return fmt.Errorf("key comparer: %w", err)
+				return fmt.Errorf("key order: %w", err)
 			}
 			if cmp >= 0 {
-				return fmt.Errorf("inconsistent key comparison function; ensure using same function as source")
+				return fmt.Errorf("inconsistent key order function; ensure using same function as source")
 			}
 		}
 		layer, err := m.keyLayer(key, m.branchFactor)

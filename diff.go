@@ -135,7 +135,7 @@ func (newMast *Mast) diff(
 						continue
 					}
 					newKey := newNode.Key[0]
-					cmp, err := newMast.keyCompare(oldKey, newKey)
+					cmp, err := newMast.keyOrder(oldKey, newKey)
 					if err != nil {
 						return fmt.Errorf("keyCompare: %w", err)
 					}
@@ -187,7 +187,7 @@ func (newMast *Mast) diff(
 				newStack.pushNode(newNode, newMast)
 			} else {
 				// both yields
-				cmp, err := newMast.keyCompare(old.yield.Key, new.yield.Key)
+				cmp, err := newMast.keyOrder(old.yield.Key, new.yield.Key)
 				if err != nil {
 					return fmt.Errorf("keyCompare: %w", err)
 				}
