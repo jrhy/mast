@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if ! which -s gopherjs ; then
+	echo install gopherjs per https://github.com/gopherjs/gopherjs
+	exit 1
+fi
+
+if ! [ -d vendor/src ] ; then
+	go mod vendor
+	mkdir vendor/src
+	mv vendor/* vendor/src 2> /dev/null
+fi
+
+GOPATH=`pwd`/vendor gopherjs test -v --minify --run 'Test[^E][^x]'
+
