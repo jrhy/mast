@@ -2,7 +2,7 @@
 [![GoDoc](https://godoc.org/github.com/jrhy/mast?status.svg)](https://godoc.org/github.com/jrhy/mast)
 
 # mast
-immutable, versioned, diffable map implementation of Merkle Search Tree
+immutable, versioned, diffable map implementation of the Merkle Search Tree
 
 See Go package documentation at:
 
