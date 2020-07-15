@@ -115,8 +115,7 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 		}
 	}
 	var rightLink interface{}
-	var right mastNode
-	right = mastNode{
+	right := mastNode{
 		Key:   append([]interface{}{}, node.Key[splitIndex:]...),
 		Value: append([]interface{}{}, node.Value[splitIndex:]...),
 		Link:  append([]interface{}{tooBigLink}, node.Link[splitIndex+1:]...),
@@ -460,7 +459,7 @@ func (node *mastNode) string(indent string, mast *Mast) (string, error) {
 
 		res += fmt.Sprintf("%s%s%s {", indent, label, linkStr)
 		if node.Link[i] == nil {
-			res += fmt.Sprintf("}\n")
+			res += "}\n"
 			continue
 		}
 		child, err := mast.load(node.Link[i])

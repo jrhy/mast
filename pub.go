@@ -422,39 +422,12 @@ func (m Mast) Size() uint64 {
 	return m.size
 }
 
-func (m Mast) string() string {
-	node, err := m.load(m.root)
-	if err != nil {
-		panic(err)
-	}
-	str, err := node.string("   ", &m)
-	if err != nil {
-		panic(err)
-	}
-	return "{\n" + str + "}"
-}
-
 // toSlice returns an array of the tree's entries.
 func (m Mast) toSlice() ([]entry, error) {
 	array := make([]entry, m.size)
 	i := 0
 	err := m.Iter(func(key interface{}, value interface{}) error {
 		array[i] = entry{key, value}
-		i++
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return array, nil
-}
-
-// values returns the values of the tree's entries as an array.
-func (m Mast) values() (interface{}, error) {
-	array := make([]interface{}, m.size)
-	i := 0
-	err := m.Iter(func(_ interface{}, value interface{}) error {
-		array[i] = value
 		i++
 		return nil
 	})
