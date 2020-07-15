@@ -199,9 +199,9 @@ func (m *Mast) Get(k interface{}, value interface{}) (bool, error) {
 	}
 	if value != nil {
 		if node.Value[i] == nil {
-			if !reflect.ValueOf(value).IsZero() {
-				return false, fmt.Errorf("cannot set return pointer for nil node value")
-			}
+			//if !reflect.ValueOf(value).IsZero() {
+				//return false, fmt.Errorf("cannot set return pointer for nil node value")
+			//}
 			return true, nil
 		}
 		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(node.Value[i]))
