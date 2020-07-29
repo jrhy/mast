@@ -17,7 +17,7 @@ var defaultGopterParameters = gopter.DefaultTestParameters()
 
 func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
 	return Mast{
-		root:            emptyNodePointer(),
+		root:            emptyNodePointer(DefaultBranchFactor),
 		zeroKey:         zeroKey,
 		zeroValue:       zeroValue,
 		branchFactor:    DefaultBranchFactor,

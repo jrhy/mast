@@ -99,16 +99,17 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 		return fmt.Errorf("value not present for given key (found=%v, wanted=%v)", node.Value[i], value)
 	}
 	oldNode := node
-	node = emptyNodePointer()
-	node.Key = make([]interface{}, len(oldNode.Key)-1)
-	copy(node.Key[:i], oldNode.Key[:i])
-	copy(node.Key[i:], oldNode.Key[i+1:])
-	node.Value = make([]interface{}, len(oldNode.Value)-1)
-	copy(node.Value[:i], oldNode.Value[:i])
-	copy(node.Value[i:], oldNode.Value[i+1:])
-	node.Link = make([]interface{}, len(oldNode.Link)-1)
-	copy(node.Link[:i], oldNode.Link[:i])
-	copy(node.Link[i+1:], oldNode.Link[i+2:])
+	node = &mastNode{
+		Key:   make([]interface{}, 0, m.branchFactor),
+		Value: make([]interface{}, 0, m.branchFactor),
+		Link:  make([]interface{}, 0, m.branchFactor+1),
+	}
+	node.Key = append(node.Key, oldNode.Key[:i]...)
+	node.Key = append(node.Key, oldNode.Key[i+1:]...)
+	node.Value = append(node.Value, oldNode.Value[:i]...)
+	node.Value = append(node.Value, oldNode.Value[i+1:]...)
+	node.Link = append(node.Link, oldNode.Link[:i]...)
+	node.Link = append(node.Link, oldNode.Link[i+1:]...)
 	mergedLink, err := m.mergeNodes(oldNode.Link[i], oldNode.Link[i+1])
 	if err != nil {
 		return fmt.Errorf("merge: %w", err)
@@ -200,7 +201,7 @@ func (m *Mast) Get(k interface{}, value interface{}) (bool, error) {
 	if value != nil {
 		if node.Value[i] == nil {
 			//if !reflect.ValueOf(value).IsZero() {
-				//return false, fmt.Errorf("cannot set return pointer for nil node value")
+			//return false, fmt.Errorf("cannot set return pointer for nil node value")
 			//}
 			return true, nil
 		}
@@ -348,7 +349,7 @@ func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
 	if r.Link != nil {
 		link = *r.Link
 	} else {
-		link = emptyNodePointer()
+		link = emptyNodePointer(int(r.BranchFactor))
 	}
 	shrinkSize := uint64(1)
 	for i := 0; i < int(r.Height); i++ {
@@ -397,7 +398,7 @@ func (m *Mast) MakeRoot() (*Root, error) {
 // (i.e. that isn't intended to be remotely persisted).
 func NewInMemory() Mast {
 	return Mast{
-		root:            emptyNodePointer(),
+		root:            emptyNodePointer(DefaultBranchFactor),
 		branchFactor:    DefaultBranchFactor,
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),

@@ -84,10 +84,13 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 	}
 	var leftLink, tooBigLink interface{} = nil, nil
 	left := mastNode{
-		Key:   append([]interface{}{}, node.Key[:splitIndex]...),
-		Value: append([]interface{}{}, node.Value[:splitIndex]...),
-		Link:  append([]interface{}{}, node.Link[:splitIndex+1]...),
+		make([]interface{}, 0, cap(node.Key)),
+		make([]interface{}, 0, cap(node.Value)),
+		make([]interface{}, 0, cap(node.Link)),
 	}
+	left.Key = append(left.Key, node.Key[:splitIndex]...)
+	left.Value = append(left.Value, node.Value[:splitIndex]...)
+	left.Link = append(left.Link, node.Link[:splitIndex+1]...)
 
 	// repartition the left and right subtrees based on the new key
 	leftMaxLink := left.Link[len(left.Link)-1]
@@ -116,10 +119,15 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 	}
 	var rightLink interface{}
 	right := mastNode{
-		Key:   append([]interface{}{}, node.Key[splitIndex:]...),
-		Value: append([]interface{}{}, node.Value[splitIndex:]...),
-		Link:  append([]interface{}{tooBigLink}, node.Link[splitIndex+1:]...),
+		make([]interface{}, 0, cap(node.Key)),
+		make([]interface{}, 0, cap(node.Value)),
+		make([]interface{}, 0, cap(node.Link)),
 	}
+	right.Key = append(right.Key, node.Key[splitIndex:]...)
+	right.Value = append(right.Value, node.Value[splitIndex:]...)
+	right.Link = append(right.Link, tooBigLink)
+	right.Link = append(right.Link, node.Link[splitIndex+1:]...)
+
 	rightMinLink := right.Link[0]
 	if rightMinLink != nil {
 		rightMin, err := mast.load(rightMinLink)
@@ -215,7 +223,7 @@ func (node *mastNode) follow(i int, createOk bool, mast *Mast) (*mastNode, error
 	} else if !createOk {
 		return node, nil
 	} else {
-		return emptyNodePointer(), nil
+		return emptyNodePointer(cap(node.Key)), nil
 	}
 }
 
@@ -226,21 +234,23 @@ func uint8min(x uint8, y uint8) uint8 {
 	return y
 }
 
-func emptyNode() mastNode {
-	return mastNode{
-		Key:   []interface{}{},
-		Value: []interface{}{},
-		Link:  []interface{}{nil},
+func emptyNode(branchFactor int) mastNode {
+	new := mastNode{
+		Key:   make([]interface{}, 0, branchFactor),
+		Value: make([]interface{}, 0, branchFactor),
+		Link:  make([]interface{}, 1, branchFactor+1),
 	}
+	new.Link[0] = nil
+	return new
 }
 
-func emptyNodePointer() *mastNode {
-	node := emptyNode()
+func emptyNodePointer(branchFactor int) *mastNode {
+	node := emptyNode(branchFactor)
 	return &node
 }
 
 func (node *mastNode) extract(from, to int) *mastNode {
-	newChild := mastNode{}
+	newChild := emptyNode(cap(node.Key))
 	newChild.Key = append([]interface{}{}, node.Key[from:to]...)
 	newChild.Value = append([]interface{}{}, node.Value[from:to]...)
 	newChild.Link = append([]interface{}{}, node.Link[from:to+1]...)
@@ -265,7 +275,7 @@ func (m *Mast) grow() error {
 	if err != nil {
 		return fmt.Errorf("load root: %w", err)
 	}
-	newNode := emptyNode()
+	newNode := emptyNode(int(m.branchFactor))
 	start := 0
 	for i, key := range node.Key {
 		layer, err := m.keyLayer(key, m.branchFactor)
@@ -357,9 +367,9 @@ func (m *Mast) shrink() error {
 		return fmt.Errorf("load root: %w", err)
 	}
 	newNode := mastNode{
-		Key:   []interface{}{},
-		Value: []interface{}{},
-		Link:  []interface{}{},
+		Key:   make([]interface{}, 0, m.branchFactor),
+		Value: make([]interface{}, 0, m.branchFactor),
+		Link:  make([]interface{}, 0, m.branchFactor+1),
 	}
 	for i := range node.Link {
 		if node.Link[i] != nil {
@@ -558,16 +568,18 @@ func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interfac
 	if err != nil {
 		return nil, fmt.Errorf("load right: %w", err)
 	}
-	combined := emptyNodePointer()
-	combined.Key = make([]interface{}, len(left.Key)+len(right.Key))
-	copy(combined.Key, left.Key)
-	copy(combined.Key[len(left.Key):], right.Key)
-	combined.Value = make([]interface{}, len(left.Value)+len(right.Value))
-	copy(combined.Value, left.Value)
-	copy(combined.Value[len(left.Value):], right.Value)
-	combined.Link = make([]interface{}, len(left.Link)+len(right.Link)-1)
-	copy(combined.Link, left.Link[0:len(left.Link)-1])
-	copy(combined.Link[len(left.Link):], right.Link[1:])
+	combined := &mastNode{
+		Key:   make([]interface{}, 0, m.branchFactor),
+		Value: make([]interface{}, 0, m.branchFactor),
+		Link:  make([]interface{}, 0, m.branchFactor+1),
+	}
+	combined.Key = append(combined.Key, left.Key...)
+	combined.Key = append(combined.Key, right.Key...)
+	combined.Value = append(combined.Value, left.Value...)
+	combined.Value = append(combined.Value, right.Value...)
+	combined.Link = append(combined.Link, left.Link[0:len(left.Link)-1]...)
+	combined.Link = append(combined.Link, nil)
+	combined.Link = append(combined.Link, right.Link[1:]...)
 	mergedLink, err := m.mergeNodes(left.Link[len(left.Link)-1], right.Link[0])
 	if err != nil {
 		return nil, fmt.Errorf("merge: %w", err)
@@ -579,13 +591,13 @@ func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interfac
 
 func (node *mastNode) copy() *mastNode {
 	newNode := mastNode{
-		make([]interface{}, len(node.Key)),
-		make([]interface{}, len(node.Value)),
-		make([]interface{}, len(node.Link)),
+		make([]interface{}, 0, cap(node.Key)),
+		make([]interface{}, 0, cap(node.Value)),
+		make([]interface{}, 0, cap(node.Link)),
 	}
-	copy(newNode.Key, node.Key)
-	copy(newNode.Value, node.Value)
-	copy(newNode.Link, node.Link)
+	newNode.Key = append(newNode.Key, node.Key...)
+	newNode.Value = append(newNode.Value, node.Value...)
+	newNode.Link = append(newNode.Link, node.Link...)
 	return &newNode
 }
 

@@ -44,22 +44,22 @@ func BenchmarkStdMapGet10k(b *testing.B)  { benchmarkStdMapGet(10_000, b) }
 func BenchmarkStdMapGet100k(b *testing.B) { benchmarkStdMapGet(100_000, b) }
 func BenchmarkStdMapGet1m(b *testing.B)   { benchmarkStdMapGet(1_000_000, b) }
 
-func benchmarkInsert(factor int, b *testing.B) {
+func benchmarkMastInsert(factor int, b *testing.B) {
 	m := newTestTree(0, "")
 	for n := 0; n < factor*b.N; n++ {
 		m.Insert(n, n)
 	}
 }
 
-func BenchmarkInsert1(b *testing.B)    { benchmarkInsert(1, b) }
-func BenchmarkInsert10(b *testing.B)   { benchmarkInsert(10, b) }
-func BenchmarkInsert100(b *testing.B)  { benchmarkInsert(100, b) }
-func BenchmarkInsert1k(b *testing.B)   { benchmarkInsert(1_000, b) }
-func BenchmarkInsert10k(b *testing.B)  { benchmarkInsert(10_000, b) }
-func BenchmarkInsert100k(b *testing.B) { benchmarkInsert(100_000, b) }
-func BenchmarkInsert1m(b *testing.B)   { benchmarkInsert(1_000_000, b) }
+func BenchmarkMastInsert1(b *testing.B)    { benchmarkMastInsert(1, b) }
+func BenchmarkMastInsert10(b *testing.B)   { benchmarkMastInsert(10, b) }
+func BenchmarkMastInsert100(b *testing.B)  { benchmarkMastInsert(100, b) }
+func BenchmarkMastInsert1k(b *testing.B)   { benchmarkMastInsert(1_000, b) }
+func BenchmarkMastInsert10k(b *testing.B)  { benchmarkMastInsert(10_000, b) }
+func BenchmarkMastInsert100k(b *testing.B) { benchmarkMastInsert(100_000, b) }
+func BenchmarkMastInsert1m(b *testing.B)   { benchmarkMastInsert(1_000_000, b) }
 
-func benchmarkGet(factor int, b *testing.B) {
+func benchmarkMastGet(factor int, b *testing.B) {
 	m := newTestTree(0, "")
 	b.StopTimer()
 	for n := 0; n < factor*b.N; n++ {
@@ -72,13 +72,13 @@ func benchmarkGet(factor int, b *testing.B) {
 	}
 }
 
-func BenchmarkGet1(b *testing.B)    { benchmarkGet(1, b) }
-func BenchmarkGet10(b *testing.B)   { benchmarkGet(10, b) }
-func BenchmarkGet100(b *testing.B)  { benchmarkGet(100, b) }
-func BenchmarkGet1k(b *testing.B)   { benchmarkGet(1_000, b) }
-func BenchmarkGet10k(b *testing.B)  { benchmarkGet(10_000, b) }
-func BenchmarkGet100k(b *testing.B) { benchmarkGet(100_000, b) }
-func BenchmarkGet1m(b *testing.B)   { benchmarkGet(1_000_000, b) }
+func BenchmarkMastGet1(b *testing.B)    { benchmarkMastGet(1, b) }
+func BenchmarkMastGet10(b *testing.B)   { benchmarkMastGet(10, b) }
+func BenchmarkMastGet100(b *testing.B)  { benchmarkMastGet(100, b) }
+func BenchmarkMastGet1k(b *testing.B)   { benchmarkMastGet(1_000, b) }
+func BenchmarkMastGet10k(b *testing.B)  { benchmarkMastGet(10_000, b) }
+func BenchmarkMastGet100k(b *testing.B) { benchmarkMastGet(100_000, b) }
+func BenchmarkMastGet1m(b *testing.B)   { benchmarkMastGet(1_000_000, b) }
 
 func BenchmarkExerciser(b *testing.B) {
 	parameters := gopter.DefaultTestParametersWithSeed(1593228262585360000)
