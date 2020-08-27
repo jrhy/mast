@@ -7,9 +7,9 @@ immutable, versioned, diffable map implementation of the Merkle Search Tree
 `import "github.com/jrhy/mast"`
 
 # Use cases
-## Efficient storage of multiple versions of materialized views
-## Diffing of versions integrates CDC/streaming
-## Efficient copy-on-write alternative to Go builtin map
+* Efficient storage of multiple versions of materialized views
+* Diffing of versions integrates CDC/streaming
+* Efficient copy-on-write alternative to Go builtin map
 
 # Documentation
 
