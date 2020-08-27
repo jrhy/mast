@@ -4,7 +4,7 @@
 # mast
 immutable, versioned, diffable map implementation of the Merkle Search Tree
 
-`import "mast"`
+`import "github.com/jrhy/mast"`
 
 See Go package documentation at:
 
