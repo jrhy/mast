@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var testThingy *testing.T
+
 type expected struct {
 	entries  map[uint]uint
 	snapshot []map[uint]uint
@@ -233,7 +235,7 @@ func (n diffLinksCommand) PostCondition(state commands.State, result commands.Re
 	}
 	actual := result.(map[bool]map[uint]uint)
 	if !reflect.DeepEqual(diffs, actual) {
-		assert.Equal(nil, diffs, actual)
+		assert.Equal(testThingy, diffs, actual)
 		return &gopter.PropResult{Status: gopter.PropFalse}
 	}
 	// fmt.Printf("expected %v\n", diffs)
@@ -318,7 +320,7 @@ func (n diffCommand) PostCondition(state commands.State, result commands.Result)
 	}
 	actual := result.(map[bool]map[uint]uint)
 	if !reflect.DeepEqual(diffs, actual) {
-		assert.Equal(nil, diffs, actual)
+		assert.Equal(testThingy, diffs, actual)
 		return &gopter.PropResult{Status: gopter.PropFalse}
 	}
 	// fmt.Printf("expected %v\n", diffs)
@@ -343,7 +345,11 @@ type snapshotCommand uint
 
 func (n snapshotCommand) Run(s commands.SystemUnderTest) commands.Result {
 	slot := int(n) % nSnapshots
-	snapshot := *s.(*system).m
+	cur := *s.(*system).m
+	snapshot, err := cur.Clone()
+	if err != nil {
+		return err
+	}
 	s.(*system).snapshot[slot] = &snapshot
 	return nil
 }
@@ -680,7 +686,9 @@ func TestExerciser(t *testing.T) {
 	}
 	properties := gopter.NewProperties(parameters)
 	properties.Property("mast exerciser", commands.Prop(mastCommands))
+	testThingy = t
 	properties.TestingRun(t)
+	testThingy = nil
 	if !t.Failed() {
 		assert.GreaterOrEqual(t, int(maxHeight), 4)
 		fmt.Printf("biggest tree height: %d\n", maxHeight)

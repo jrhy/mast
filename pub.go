@@ -83,7 +83,7 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 	if err != nil {
 		return fmt.Errorf("findNode: %w", err)
 	}
-	// validateNode(node, mast)
+	// validateNode(node, m)
 	if options.targetLayer != options.currentHeight ||
 		i == len(node.Key) {
 		return fmt.Errorf("key %v not present in tree", key)
@@ -99,23 +99,17 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 		return fmt.Errorf("value not present for given key (found=%v, wanted=%v)", node.Value[i], value)
 	}
 	oldNode := node
-	node = &mastNode{
-		Key:   make([]interface{}, 0, m.branchFactor),
-		Value: make([]interface{}, 0, m.branchFactor),
-		Link:  make([]interface{}, 0, m.branchFactor+1),
-	}
-	node.Key = append(node.Key, oldNode.Key[:i]...)
-	node.Key = append(node.Key, oldNode.Key[i+1:]...)
-	node.Value = append(node.Value, oldNode.Value[:i]...)
-	node.Value = append(node.Value, oldNode.Value[i+1:]...)
-	node.Link = append(node.Link, oldNode.Link[:i]...)
-	node.Link = append(node.Link, oldNode.Link[i+1:]...)
 	mergedLink, err := m.mergeNodes(oldNode.Link[i], oldNode.Link[i+1])
 	if err != nil {
 		return fmt.Errorf("merge: %w", err)
 	}
+	node = node.ToMut(m)
+	node.Dirty()
+	node.Key = append(node.Key[:i], node.Key[i+1:]...)
+	node.Value = append(node.Value[:i], node.Value[i+1:]...)
+	node.Link = append(node.Link[:i], node.Link[i+1:]...)
 	node.Link[i] = mergedLink
-	validateNode(node, m)
+	// validateNode(node, m)
 	options.path[len(options.path)-1].node = node
 	err = m.savePathForRoot(options.path)
 	if err != nil {
@@ -245,33 +239,34 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 			if node.Value[i] == value {
 				return nil
 			}
-			node = node.copy()
+			node = node.ToMut(m)
+			node.Dirty()
 			node.Value[i] = value
 			options.path[len(options.path)-1].node = node
 			return m.savePathForRoot(options.path)
 		}
 	}
-	oldKeys := node.Key
-	node = node.copy()
-	node.Key = make([]interface{}, len(oldKeys)+1)
-	copy(node.Key, oldKeys[:i])
-	node.Key[i] = key
-	oldValues := node.Value
-	node.Value = make([]interface{}, len(oldValues)+1)
-	copy(node.Value, oldValues[:i])
-	node.Value[i] = value
-	oldLinks := node.Link
-	node.Link = make([]interface{}, len(oldLinks)+1)
-	copy(node.Link, oldLinks[:i])
+	// XXX do after split, XXX mark tree invalid if split fails
+	node = node.ToMut(m)
+	node.Dirty()
 	if i < len(node.Key) {
-		copy(node.Key[i+1:], oldKeys[i:])
-		copy(node.Value[i+1:], oldValues[i:])
-		copy(node.Link[i+2:], oldLinks[i+1:])
+		node.Key = append(node.Key[:i+1], node.Key[i:]...)
+		node.Key[i] = key
+		node.Value = append(node.Value[:i+1], node.Value[i:]...)
+		node.Value[i] = value
+	} else {
+		node.Key = append(node.Key, key)
+		node.Value = append(node.Value, value)
+	}
+	if i < len(node.Link) {
+		node.Link = append(node.Link[:i+1], node.Link[i:]...)
+	} else {
+		node.Link = append(node.Link, nil)
 	}
 	var leftLink interface{}
 	var rightLink interface{}
-	if oldLinks[i] != nil {
-		child, err := m.load(oldLinks[i])
+	if node.Link[i] != nil {
+		child, err := m.load(node.Link[i])
 		if err != nil {
 			return err
 		}
@@ -436,4 +431,18 @@ func (m Mast) toSlice() ([]entry, error) {
 		return nil, err
 	}
 	return array, nil
+}
+
+func (m Mast) Clone() (Mast, error) {
+	newNode, err := m.load(m.root)
+	if err != nil {
+		return Mast{}, err
+	}
+	m2 := m
+	newRoot, err := newNode.ToShared()
+	if err != nil {
+		return Mast{}, err
+	}
+	m2.root = newRoot
+	return m2, nil
 }

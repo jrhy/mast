@@ -5,7 +5,7 @@ import lru "github.com/hashicorp/golang-lru"
 // NodeCache caches the immutable nodes from a remote storage source.
 // It is also used to avoid re-storing nodes, so care should be taken
 // to switch/invalidate NodeCache when the Persist is changed.
-// 
+//
 type NodeCache interface {
 	// Add adds a freshly-persisted node to the cache.
 	Add(key, value interface{})

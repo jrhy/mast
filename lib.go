@@ -2,6 +2,8 @@ package mast
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 )
 
 // DefaultBranchFactor is how many entries per node a tree will normally have.
@@ -28,9 +30,13 @@ type Mast struct {
 }
 
 type mastNode struct {
-	Key   []interface{}
-	Value []interface{}
-	Link  []interface{} `json:",omitempty"`
+	Key      []interface{}
+	Value    []interface{}
+	Link     []interface{} `json:",omitempty"`
+	dirty    bool
+	shared   bool
+	expected *mastNode
+	source   *string
 }
 
 type pathEntry struct {
@@ -39,27 +45,24 @@ type pathEntry struct {
 }
 
 func (m *Mast) savePathForRoot(path []pathEntry) error {
-	for i := 0; i < len(path)-1; i++ {
-		path[i].node = path[i].node.copy()
+	for i := 0; i < len(path); i++ {
+		if !path[i].node.dirty {
+			path[i].node = path[i].node.ToMut(m)
+			path[i].node.dirty = true
+			path[i].node.expected = nil
+			path[i].node.source = nil
+		}
 	}
 	for i := len(path) - 2; i >= 0; i-- {
 		entry := path[i]
 		if !path[i+1].node.isEmpty() {
-			storedLink, err := m.store(path[i+1].node)
-			if err != nil {
-				return fmt.Errorf("store new node: %w", err)
-			}
-			entry.node.Link[entry.linkIndex] = storedLink
+			entry.node.Link[entry.linkIndex] = path[i+1].node
 		} else {
 			entry.node.Link[entry.linkIndex] = nil
 		}
 	}
 	if !path[0].node.isEmpty() {
-		newRoot, err := m.store(path[0].node)
-		if err != nil {
-			return fmt.Errorf("store new root: %w", err)
-		}
-		m.root = newRoot
+		m.root = path[0].node
 	} else {
 		m.root = nil
 	}
@@ -87,6 +90,7 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 		make([]interface{}, 0, cap(node.Key)),
 		make([]interface{}, 0, cap(node.Value)),
 		make([]interface{}, 0, cap(node.Link)),
+		true, false, nil, nil,
 	}
 	left.Key = append(left.Key, node.Key[:splitIndex]...)
 	left.Value = append(left.Value, node.Value[:splitIndex]...)
@@ -122,11 +126,12 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 		make([]interface{}, 0, cap(node.Key)),
 		make([]interface{}, 0, cap(node.Value)),
 		make([]interface{}, 0, cap(node.Link)),
+		true, false, nil, nil,
 	}
 	right.Key = append(right.Key, node.Key[splitIndex:]...)
 	right.Value = append(right.Value, node.Value[splitIndex:]...)
-	right.Link = append(right.Link, tooBigLink)
-	right.Link = append(right.Link, node.Link[splitIndex+1:]...)
+	right.Link = append(right.Link, node.Link[splitIndex:]...)
+	right.Link[0] = tooBigLink
 
 	rightMinLink := right.Link[0]
 	if rightMinLink != nil {
@@ -143,8 +148,7 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 		}
 		right.Link[0] = rightMinLink
 		if tooSmallLink != nil {
-			// shouldn't happen
-			panic("dunno what to do with non-nil tooSmall")
+			panic("inconsistent node order: non-nil tooSmall")
 		}
 	}
 	if !right.isEmpty() {
@@ -153,6 +157,10 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 			return nil, nil, err
 		}
 	}
+	// TODO: common case maybe not dirty
+	node.dirty = true
+	node.expected = nil
+	node.source = nil
 	return leftLink, rightLink, nil
 }
 
@@ -173,44 +181,43 @@ func (node *mastNode) findNode(m *Mast, key interface{}, options *findOptions) (
 		node.dump("  ", m)
 		panic(fmt.Sprintf("node %p doesn't have N+1 links", node))
 	}
-	for i := range node.Link {
-		var err error
-		var cmp int
-		if i >= len(node.Key) {
-			// going right
-			cmp = 1
-		} else {
-			cmp, err = m.keyOrder(node.Key[i], key)
-			if err != nil {
-				return nil, 0, fmt.Errorf("keyCompare: %w", err)
-			}
-		}
-		if cmp < 0 {
-			continue
-		}
-		if cmp == 0 {
-			options.path = append(options.path,
-				pathEntry{node, i})
-			return node, i, nil
-		}
-		if options.currentHeight == options.targetLayer {
-			options.path = append(options.path,
-				pathEntry{node, i})
-			return node, i, nil
-		}
-
-		child, err := node.follow(i, options.createMissingNodes, m)
+	var err error
+	cmp := -1
+	if i > 0 {
+		// check max first, optimizing for in-order insertion
+		cmp, err = m.keyOrder(key, node.Key[i-1])
 		if err != nil {
-			return nil, 0, fmt.Errorf("following %d: %w", i, err)
+			return nil, 0, fmt.Errorf("keyCompare: %w", err)
 		}
-		options.currentHeight--
-		options.path = append(options.path,
-			pathEntry{node, i})
-		return child.findNode(m, key, options)
+		if cmp <= 0 {
+			i--
+		}
+	}
+	if cmp < 0 {
+		i = sort.Search(i, func(i int) bool {
+			if err != nil {
+				return true
+			}
+			cmp, err = m.keyOrder(key, node.Key[i])
+			if err != nil {
+				err = fmt.Errorf("keyCompare: %w", err)
+				return true
+			}
+			return cmp <= 0
+		})
 	}
 	options.path = append(options.path,
 		pathEntry{node, i})
-	return node, i, nil
+	if cmp == 0 || options.currentHeight == options.targetLayer {
+		return node, i, nil
+	}
+
+	child, err := node.follow(i, options.createMissingNodes, m)
+	if err != nil {
+		return nil, 0, fmt.Errorf("following %d: %w", i, err)
+	}
+	options.currentHeight--
+	return child.findNode(m, key, options)
 }
 
 func (node *mastNode) follow(i int, createOk bool, mast *Mast) (*mastNode, error) {
@@ -223,7 +230,9 @@ func (node *mastNode) follow(i int, createOk bool, mast *Mast) (*mastNode, error
 	} else if !createOk {
 		return node, nil
 	} else {
-		return emptyNodePointer(cap(node.Key)), nil
+		child := emptyNodePointer(cap(node.Key))
+		node.Link[i] = child
+		return child, nil
 	}
 }
 
@@ -263,6 +272,9 @@ func (node *mastNode) extract(from, to int) *mastNode {
 	if newChild.isEmpty() {
 		return nil
 	}
+	newChild.dirty = true
+	newChild.expected = nil
+	newChild.source = nil
 	return &newChild
 }
 
@@ -306,7 +318,7 @@ func (m *Mast) grow() error {
 			panic("new node has wrong number of links")
 		}
 		start = i + 1
-		validateNode(&newNode, m)
+		// validateNode(&newNode, m)
 	}
 	// if start <= len(node.Key) {
 	newRightNode := node.extract(start, len(node.Key))
@@ -321,7 +333,10 @@ func (m *Mast) grow() error {
 		}
 		newNode.Link[len(newNode.Link)-1] = newRightLink
 	}
-	validateNode(&newNode, m)
+	// validateNode(&newNode, m)
+	newNode.dirty = true
+	newNode.expected = nil
+	newNode.source = nil
 	newLink, err := m.store(&newNode)
 	if err != nil {
 		return err
@@ -370,6 +385,7 @@ func (m *Mast) shrink() error {
 		Key:   make([]interface{}, 0, m.branchFactor),
 		Value: make([]interface{}, 0, m.branchFactor),
 		Link:  make([]interface{}, 0, m.branchFactor+1),
+		dirty: true,
 	}
 	for i := range node.Link {
 		if node.Link[i] != nil {
@@ -377,7 +393,7 @@ func (m *Mast) shrink() error {
 			if err != nil {
 				return fmt.Errorf("load child: %w", err)
 			}
-			validateNode(child, m)
+			// validateNode(child, m)
 			newNode.Key = append(newNode.Key, child.Key[:]...)
 			newNode.Value = append(newNode.Value, child.Value[:]...)
 			newNode.Link = append(newNode.Link, child.Link[:]...)
@@ -530,6 +546,18 @@ func (node *mastNode) iter(f func(interface{}, interface{}) error, mast *Mast) e
 }
 
 func validateNode(node *mastNode, mast *Mast) {
+	if node.expected != nil {
+		if !reflect.DeepEqual(node.expected.Key, node.Key) {
+			fmt.Printf("expected node %v\n", node.expected)
+			fmt.Printf("found    node %v\n", node)
+			panic("nodes differ in keys")
+		}
+		if !reflect.DeepEqual(node.expected.Value, node.Value) {
+			fmt.Printf("expected node %v\n", node.expected)
+			fmt.Printf("found    node %v\n", node)
+			panic("nodes differ in values")
+		}
+	}
 	for i := 0; i < len(node.Key)-1; i++ {
 		cmp, err := mast.keyOrder(node.Key[0], node.Key[1])
 		if err != nil {
@@ -572,6 +600,7 @@ func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interfac
 		Key:   make([]interface{}, 0, m.branchFactor),
 		Value: make([]interface{}, 0, m.branchFactor),
 		Link:  make([]interface{}, 0, m.branchFactor+1),
+		dirty: true,
 	}
 	combined.Key = append(combined.Key, left.Key...)
 	combined.Key = append(combined.Key, right.Key...)
@@ -589,11 +618,12 @@ func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interfac
 	return combinedLink, nil
 }
 
-func (node *mastNode) copy() *mastNode {
+func (node *mastNode) xcopy() *mastNode {
 	newNode := mastNode{
 		make([]interface{}, 0, cap(node.Key)),
 		make([]interface{}, 0, cap(node.Value)),
 		make([]interface{}, 0, cap(node.Link)),
+		node.dirty, node.shared, nil, nil,
 	}
 	newNode.Key = append(newNode.Key, node.Key...)
 	newNode.Value = append(newNode.Value, node.Value...)
@@ -631,4 +661,45 @@ func (m *Mast) checkRoot() error {
 		last = key
 	}
 	return nil
+}
+
+func (node *mastNode) ToMut(mast *Mast) *mastNode {
+	validateNode(node, mast)
+	if !node.shared {
+		return node
+	}
+	newNode := node.xcopy()
+	newNode.expected = node
+	newNode.shared = false
+	return newNode
+}
+
+func (node *mastNode) ToShared() (*mastNode, error) {
+	if node.shared {
+		return node, nil
+	}
+	node = node.xcopy()
+	var err error
+	for i, link := range node.Link {
+		switch l := link.(type) {
+		case *mastNode:
+			if l.shared {
+				continue
+			}
+			node.Link[i], err = l.ToShared()
+			if err != nil {
+				return nil, err
+			}
+		case string:
+		case nil:
+		default:
+			return nil, fmt.Errorf("unhandled link type %T", l)
+		}
+	}
+	return node, nil
+}
+
+func (node *mastNode) Dirty() {
+	node.expected = nil
+	node.source = nil
 }

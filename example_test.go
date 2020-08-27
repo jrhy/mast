@@ -8,7 +8,10 @@ func ExampleMast_DiffIter() {
 	v1 := NewInMemory()
 	v1.Insert(0, "foo")
 	v1.Insert(100, "asdf")
-	v2 := v1
+	v2, err := v1.Clone()
+	if err != nil {
+		panic(err)
+	}
 	v2.Insert(0, "bar")
 	v2.Delete(100, "asdf")
 	v2.Insert(200, "qwerty")

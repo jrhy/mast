@@ -639,8 +639,10 @@ func TestSplitWithSlide(t *testing.T) {
 }
 
 func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
-	m := baseTree
-	m2 := baseTree
+	m, err := baseTree.Clone()
+	require.NoError(t, err)
+	m2, err := baseTree.Clone()
+	require.NoError(t, err)
 	for _, key := range keys {
 		err := m.Insert(key, "")
 		assert.NoError(t, err)

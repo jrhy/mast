@@ -4,9 +4,13 @@ implementation of a Merkle Search Tree (MST).  Masts can be huge
 (not limited to memory).  Masts can be stored in anything, like a
 filesystem, KV store, or blob store.  Masts are designed to be
 safely concurrently accessed by multiple threads/hosts.  And like
-Merkle DAGs, Masts are designed to be easy to synchronize.
+Merkle DAGs, Masts are designed to be easy to cache and synchronize.
 
-What's cool about MSTs
+Use case 1: Efficient storage of multiple versions of materialized views
+Use case 2: Diffing of versions integrates CDC/streaming
+Use case 3: Efficient copy-on-write alternative to Go builtin map
+
+What are MSTs
 
 Mast is an implementation of the structure described in the
 awesome paper, "Merkle
@@ -28,11 +32,10 @@ equal node hashes indicate equal contents.
 
 Concurrency
 
-Mast nodes are immutable, so can be freely shared and cached. A Mast
-or Root should only be worked on by one thread at a time, however,
-so they should be copied to each thread. (Copying Masts or Roots
-is cheap though, and does not duplicate data, just pointers to
-immutable nodes.)
+A Mast can be Clone()d for sharing between threads. Cloning creates
+a new version that can evolve independently, yet shares all the
+unmodified subtrees with its parent, and as such are relatively
+cheap to create.
 
 Inspiration
 
@@ -41,11 +44,9 @@ languages really do make it easier to "reason about" systems; easier
 to test, provide a foundation to build more quickly on.
 
 https://github.com/bodil/im-rs, "Blazing fast immutable collection
-datatypes for Rust", by Bodil Stokke, is an exemplar.  I learned a
-lot from the diff algorithm and use of property testing, as well
-as finding that Chunks and PoolRefs provided a lot of clarity over
-the stumbling blocks I encountered coming from my GC'd-language
-perspective.
-
+datatypes for Rust", by Bodil Stokke, is an exemplar: the diff algorithm
+and use of property testing, are instructive, and Chunks and PoolRefs 
+fill gaps in understanding of Rust's ownership model for library writers
+coming from GC'd languages.
 */
 package mast
