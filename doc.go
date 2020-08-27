@@ -6,9 +6,14 @@ filesystem, KV store, or blob store.  Masts are designed to be
 safely concurrently accessed by multiple threads/hosts.  And like
 Merkle DAGs, Masts are designed to be easy to cache and synchronize.
 
-Use case 1: Efficient storage of multiple versions of materialized views
-Use case 2: Diffing of versions integrates CDC/streaming
-Use case 3: Efficient copy-on-write alternative to Go builtin map
+Uses
+
+- Efficient storage of multiple versions of materialized views
+
+- Diffing of versions integrates CDC/streaming
+
+- Efficient copy-on-write alternative to Go builtin map
+
 
 What are MSTs
 
