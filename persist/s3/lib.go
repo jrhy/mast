@@ -5,6 +5,7 @@ import (
 	"context"
 	"io/ioutil"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
@@ -13,6 +14,7 @@ import (
 type Persist struct {
 	S3         *s3.S3
 	BucketName string
+	Prefix     string
 	// XXX TODO: rename persist to store?
 }
 
@@ -20,7 +22,7 @@ type Persist struct {
 func (p Persist) Load(ctx context.Context, name string) ([]byte, error) {
 	input := s3.GetObjectInput{
 		Bucket: &p.BucketName,
-		Key:    &name,
+		Key:    aws.String(p.Prefix + name),
 	}
 	output, err := p.S3.GetObjectWithContext(ctx, &input)
 	if err != nil {
@@ -35,7 +37,7 @@ func (p Persist) Load(ctx context.Context, name string) ([]byte, error) {
 func (p Persist) Store(ctx context.Context, name string, b []byte) error {
 	input := s3.PutObjectInput{
 		Bucket: &p.BucketName,
-		Key:    &name,
+		Key:    aws.String(p.Prefix + name),
 		Body:   bytes.NewReader(b),
 	}
 	_, err := p.S3.PutObjectWithContext(ctx, &input)
@@ -48,6 +50,6 @@ func (p Persist) Store(ctx context.Context, name string, b []byte) error {
 // XXX remove 'fgiven' in file/lib.go
 // NewPersist returns a Persist that loads and stores nodes as
 // objects with the given S3 client and bucket name.
-func NewPersist(client *s3.S3, bucketName string) Persist {
-	return Persist{client, bucketName}
+func NewPersist(client *s3.S3, bucketName, prefix string) Persist {
+	return Persist{client, bucketName, prefix}
 }
