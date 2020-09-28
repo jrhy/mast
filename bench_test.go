@@ -2,6 +2,7 @@ package mast
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -47,7 +48,7 @@ func BenchmarkStdMapGet1m(b *testing.B)   { benchmarkStdMapGet(1_000_000, b) }
 func benchmarkMastInsert(factor int, b *testing.B) {
 	m := newTestTree(0, "")
 	for n := 0; n < factor*b.N; n++ {
-		m.Insert(n, n)
+		m.Insert(context.Background(), n, n)
 	}
 }
 
@@ -63,12 +64,12 @@ func benchmarkMastGet(factor int, b *testing.B) {
 	m := newTestTree(0, "")
 	b.StopTimer()
 	for n := 0; n < factor*b.N; n++ {
-		m.Insert(n, n)
+		m.Insert(context.Background(), n, n)
 	}
 	b.StartTimer()
 	var v int
 	for n := 0; n < factor*b.N; n++ {
-		m.Get(n, &v)
+		m.Get(context.Background(), n, &v)
 	}
 }
 

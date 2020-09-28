@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,13 +14,13 @@ type Persist struct {
 }
 
 // Load loads the bytes persisted in the named file.
-func (p Persist) Load(name string) ([]byte, error) {
+func (p Persist) Load(ctx context.Context, name string) ([]byte, error) {
 	return ioutil.ReadFile(filepath.Join(p.basepath, name))
 }
 
 // Store persists the given bytes in a file of the given name, if it
 // doesn't exist already.
-func (p Persist) Store(name string, bytes []byte) error {
+func (p Persist) Store(ctx context.Context, name string, bytes []byte) error {
 	path := filepath.Join(p.basepath, name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
@@ -29,7 +30,7 @@ func (p Persist) Store(name string, bytes []byte) error {
 }
 
 // NewPersistForPath returns a Persist that loads and stores nodes as
-// files in the directory at the fgiven path.
+// files in the directory at the given path.
 //
 //      p := NewPersistForPath("/var/db/users")
 //      err, blob := p.load("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")

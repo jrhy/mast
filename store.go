@@ -1,6 +1,7 @@
 package mast
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -21,10 +22,10 @@ var (
 	defaultMarshal   = json.Marshal
 )
 
-func (m *Mast) load(link interface{}) (*mastNode, error) {
+func (m *Mast) load(ctx context.Context, link interface{}) (*mastNode, error) {
 	switch l := link.(type) {
 	case string:
-		return m.loadPersisted(l)
+		return m.loadPersisted(ctx, l)
 	case *mastNode:
 		return l, nil
 	default:
@@ -32,13 +33,13 @@ func (m *Mast) load(link interface{}) (*mastNode, error) {
 	}
 }
 
-func (m *Mast) loadPersisted(l string) (*mastNode, error) {
+func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 	if m.nodeCache != nil {
 		if node, ok := m.nodeCache.Get(l); ok {
 			return node.(*mastNode), nil
 		}
 	}
-	nodeBytes, err := m.persist.Load(l)
+	nodeBytes, err := m.persist.Load(ctx, l)
 	if err != nil {
 		return nil, fmt.Errorf("persist load %s: %w", l, err)
 	}
@@ -113,7 +114,7 @@ func (m *Mast) loadPersisted(l string) (*mastNode, error) {
 	if m.debug {
 		fmt.Printf("loaded node %s->%v\n", l, node)
 	}
-	validateNode(&node, m)
+	validateNode(ctx, &node, m)
 	if m.nodeCache != nil {
 		m.nodeCache.Add(l, &node)
 	}
@@ -128,7 +129,7 @@ func (m *Mast) store(node *mastNode) (interface{}, error) {
 	return node, nil
 }
 
-func (node *mastNode) store(persist Persist, cache NodeCache, marshal func(interface{}) ([]byte, error)) (string, error) {
+func (node *mastNode) store(ctx context.Context, persist Persist, cache NodeCache, marshal func(interface{}) ([]byte, error)) (string, error) {
 	if !node.dirty {
 		if node.expected != nil {
 			if !reflect.DeepEqual(node.expected.Key, node.Key) {
@@ -165,7 +166,7 @@ func (node *mastNode) store(persist Persist, cache NodeCache, marshal func(inter
 		case string:
 			break
 		case *mastNode:
-			newLink, err := l.store(persist, cache, marshal)
+			newLink, err := l.store(ctx, persist, cache, marshal)
 			if err != nil {
 				return "", fmt.Errorf("flush: %w", err)
 			}
@@ -189,7 +190,7 @@ func (node *mastNode) store(persist Persist, cache NodeCache, marshal func(inter
 			return hash, nil
 		}
 	}
-	err = persist.Store(hash, encoded)
+	err = persist.Store(ctx, hash, encoded)
 	if err != nil {
 		return "", fmt.Errorf("persist store: %w", err)
 	}

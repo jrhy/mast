@@ -1,6 +1,9 @@
 package mast
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type iterItem struct {
 	considerLink interface{}
@@ -8,6 +11,7 @@ type iterItem struct {
 }
 
 func (newMast *Mast) diff(
+	ctx context.Context,
 	oldMast *Mast,
 	entryCb func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error),
 	linkCb func(removed bool, link interface{}) (bool, error),
@@ -31,7 +35,7 @@ func (newMast *Mast) diff(
 			return nil
 		} else if old == nil && new != nil {
 			if new.considerLink != nil {
-				if linkCb != nil && !newMast.alreadyNotified("new", alreadyNotifiedNewLink, new.considerLink) {
+				if linkCb != nil && !newMast.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, new.considerLink) {
 					keepGoing, err := linkCb(false, new.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -40,7 +44,7 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				newNode, err := newMast.load(new.considerLink)
+				newNode, err := newMast.load(ctx, new.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
@@ -58,7 +62,7 @@ func (newMast *Mast) diff(
 			}
 		} else if old != nil && new == nil {
 			if old.considerLink != nil {
-				if linkCb != nil && !oldMast.alreadyNotified("old", alreadyNotifiedOldLink, old.considerLink) {
+				if linkCb != nil && !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, old.considerLink) {
 					keepGoing, err := linkCb(true, old.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -67,7 +71,7 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				oldNode, err := oldMast.load(old.considerLink)
+				oldNode, err := oldMast.load(ctx, old.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
@@ -90,7 +94,7 @@ func (newMast *Mast) diff(
 						fmt.Printf("  old(consider) new(consider) and links differ\n")
 					}
 					if linkCb != nil {
-						if !oldMast.alreadyNotified("old", alreadyNotifiedOldLink, old.considerLink) {
+						if !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, old.considerLink) {
 							keepGoing, err := linkCb(true, old.considerLink)
 							if err != nil {
 								return fmt.Errorf("callback: %w", err)
@@ -99,7 +103,7 @@ func (newMast *Mast) diff(
 								return nil
 							}
 						}
-						if !newMast.alreadyNotified("new", alreadyNotifiedNewLink, new.considerLink) {
+						if !newMast.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, new.considerLink) {
 							keepGoing, err := linkCb(false, new.considerLink)
 							if err != nil {
 								return fmt.Errorf("callback: %w", err)
@@ -109,7 +113,7 @@ func (newMast *Mast) diff(
 							}
 						}
 					}
-					oldNode, err := oldMast.load(old.considerLink)
+					oldNode, err := oldMast.load(ctx, old.considerLink)
 					if err != nil {
 						return fmt.Errorf("load: %w", err)
 					}
@@ -122,7 +126,7 @@ func (newMast *Mast) diff(
 						continue
 					}
 					oldKey := oldNode.Key[0]
-					newNode, err := newMast.load(new.considerLink)
+					newNode, err := newMast.load(ctx, new.considerLink)
 					if err != nil {
 						return fmt.Errorf("load: %w", err)
 					}
@@ -154,7 +158,7 @@ func (newMast *Mast) diff(
 					}
 				}
 			} else if old.considerLink != nil && new.considerLink == nil {
-				if linkCb != nil && !oldMast.alreadyNotified("old", alreadyNotifiedOldLink, old.considerLink) {
+				if linkCb != nil && !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, old.considerLink) {
 					keepGoing, err := linkCb(true, old.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -163,14 +167,14 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				oldNode, err := oldMast.load(old.considerLink)
+				oldNode, err := oldMast.load(ctx, old.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
 				oldStack.pushNode(oldNode, oldMast)
 				newStack.push(new)
 			} else if old.considerLink == nil && new.considerLink != nil {
-				if linkCb != nil && !newMast.alreadyNotified("new", alreadyNotifiedNewLink, new.considerLink) {
+				if linkCb != nil && !newMast.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, new.considerLink) {
 					keepGoing, err := linkCb(false, new.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
@@ -179,7 +183,7 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				newNode, err := newMast.load(new.considerLink)
+				newNode, err := newMast.load(ctx, new.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
@@ -231,13 +235,13 @@ func (newMast *Mast) diff(
 	}
 }
 
-func (m *Mast) alreadyNotified(name string, linkByHeight map[uint8]interface{}, link interface{}) bool {
+func (m *Mast) alreadyNotified(ctx context.Context, name string, linkByHeight map[uint8]interface{}, link interface{}) bool {
 	path := []interface{}{}
 	myLink := link
 	var keyHeight uint8
 	for {
 		path = append(path, myLink)
-		node, err := m.load(myLink)
+		node, err := m.load(ctx, myLink)
 		if err != nil {
 			return false
 		}

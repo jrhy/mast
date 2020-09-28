@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -8,20 +9,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/jrhy/mast"
 )
+
+var ctx = context.Background()
 
 func TestFiles(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test")
 	require.NoError(t, err)
 
 	p := NewPersistForPath(dir)
-	var _ mast.Persist = p
 
-	err = p.Store("foo", []byte("hello"))
+	err = p.Store(ctx, "foo", []byte("hello"))
 	require.NoError(t, err)
-	loaded, err := p.Load("foo")
+	loaded, err := p.Load(ctx, "foo")
 	require.NoError(t, err)
 	assert.Equal(t, []byte("hello"), loaded)
 
