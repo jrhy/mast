@@ -1,6 +1,7 @@
 package mast
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -44,10 +45,10 @@ type pathEntry struct {
 	linkIndex int
 }
 
-func (m *Mast) savePathForRoot(path []pathEntry) error {
+func (m *Mast) savePathForRoot(ctx context.Context, path []pathEntry) error {
 	for i := 0; i < len(path); i++ {
 		if !path[i].node.dirty {
-			path[i].node = path[i].node.ToMut(m)
+			path[i].node = path[i].node.ToMut(ctx, m)
 			path[i].node.dirty = true
 			path[i].node.expected = nil
 			path[i].node.source = nil
@@ -70,7 +71,7 @@ func (m *Mast) savePathForRoot(path []pathEntry) error {
 }
 
 // Splits the given node into two: left and right, so they could be the left+right children of a parent entry with the given key. The key is not expected to already be present in the source node, and will panic--but it would not migrated to the output, so that the caller can decide where to put it and its new children.
-func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{}, error) {
+func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (interface{}, interface{}, error) {
 	var splitIndex int
 	var err error
 	for splitIndex = 0; splitIndex < len(node.Key); splitIndex++ {
@@ -99,14 +100,14 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 	// repartition the left and right subtrees based on the new key
 	leftMaxLink := left.Link[len(left.Link)-1]
 	if leftMaxLink != nil {
-		leftMax, err := mast.load(leftMaxLink)
+		leftMax, err := mast.load(ctx, leftMaxLink)
 		if mast.debug {
 			fmt.Printf("  splitting leftMax, node with keys: %v\n", leftMax.Key)
 		}
 		if err != nil {
 			return nil, nil, fmt.Errorf("loading leftMax: %w", err)
 		}
-		leftMaxLink, tooBigLink, err = split(leftMax, key, mast)
+		leftMaxLink, tooBigLink, err = split(ctx, leftMax, key, mast)
 		if err != nil {
 			return nil, nil, fmt.Errorf("splitting leftMax: %w", err)
 		}
@@ -135,11 +136,11 @@ func split(node *mastNode, key interface{}, mast *Mast) (interface{}, interface{
 
 	rightMinLink := right.Link[0]
 	if rightMinLink != nil {
-		rightMin, err := mast.load(rightMinLink)
+		rightMin, err := mast.load(ctx, rightMinLink)
 		if err != nil {
 			return nil, nil, fmt.Errorf("load rightMin: %w", err)
 		}
-		tooSmallLink, rightMinLink, err := split(rightMin, key, mast)
+		tooSmallLink, rightMinLink, err := split(ctx, rightMin, key, mast)
 		if err != nil {
 			return nil, nil, fmt.Errorf("split rightMin: %w", err)
 		}
@@ -175,10 +176,10 @@ type findOptions struct {
 	path               []pathEntry
 }
 
-func (node *mastNode) findNode(m *Mast, key interface{}, options *findOptions) (*mastNode, int, error) {
+func (node *mastNode) findNode(ctx context.Context, m *Mast, key interface{}, options *findOptions) (*mastNode, int, error) {
 	i := len(node.Key)
 	if len(node.Link) != i+1 {
-		node.dump("  ", m)
+		node.dump(ctx, "  ", m)
 		panic(fmt.Sprintf("node %p doesn't have N+1 links", node))
 	}
 	var err error
@@ -212,17 +213,17 @@ func (node *mastNode) findNode(m *Mast, key interface{}, options *findOptions) (
 		return node, i, nil
 	}
 
-	child, err := node.follow(i, options.createMissingNodes, m)
+	child, err := node.follow(ctx, i, options.createMissingNodes, m)
 	if err != nil {
 		return nil, 0, fmt.Errorf("following %d: %w", i, err)
 	}
 	options.currentHeight--
-	return child.findNode(m, key, options)
+	return child.findNode(ctx, m, key, options)
 }
 
-func (node *mastNode) follow(i int, createOk bool, mast *Mast) (*mastNode, error) {
+func (node *mastNode) follow(ctx context.Context, i int, createOk bool, mast *Mast) (*mastNode, error) {
 	if node.Link[i] != nil {
-		child, err := mast.load(node.Link[i])
+		child, err := mast.load(ctx, node.Link[i])
 		if err != nil {
 			return nil, fmt.Errorf("follow load %v: %w", node.Link[i], err)
 		}
@@ -278,12 +279,12 @@ func (node *mastNode) extract(from, to int) *mastNode {
 	return &newChild
 }
 
-func (m *Mast) grow() error {
+func (m *Mast) grow(ctx context.Context) error {
 	var err error
 	if m.debug {
 		fmt.Printf("GROWING\n")
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return fmt.Errorf("load root: %w", err)
 	}
@@ -325,7 +326,7 @@ func (m *Mast) grow() error {
 	if newRightNode != nil {
 		if m.debug {
 			fmt.Printf("extracted right:\n")
-			newRightNode.dump("  ", m)
+			newRightNode.dump(ctx, "  ", m)
 		}
 		newRightLink, err := m.store(newRightNode)
 		if err != nil {
@@ -361,12 +362,12 @@ func (node *mastNode) canGrow(currentHeight uint8, keyLayer func(interface{}, ui
 	return false, nil
 }
 
-func (m *Mast) shrink() error {
+func (m *Mast) shrink(ctx context.Context) error {
 	var err error
 	if m.debug {
 		fmt.Printf("SHRINKING\n")
 		fmt.Printf("size=%d height=%d branchFactor=%d\n", m.size, m.height, m.branchFactor)
-		m.dump()
+		m.dump(ctx)
 	}
 	if m.height == 0 {
 		return fmt.Errorf("tree is too short to shrink")
@@ -377,7 +378,7 @@ func (m *Mast) shrink() error {
 		}
 		return nil
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return fmt.Errorf("load root: %w", err)
 	}
@@ -389,7 +390,7 @@ func (m *Mast) shrink() error {
 	}
 	for i := range node.Link {
 		if node.Link[i] != nil {
-			child, err := m.load(node.Link[i])
+			child, err := m.load(ctx, node.Link[i])
 			if err != nil {
 				return fmt.Errorf("load child: %w", err)
 			}
@@ -397,7 +398,7 @@ func (m *Mast) shrink() error {
 			newNode.Key = append(newNode.Key, child.Key[:]...)
 			newNode.Value = append(newNode.Value, child.Value[:]...)
 			newNode.Link = append(newNode.Link, child.Link[:]...)
-			validateNode(&newNode, m)
+			validateNode(ctx, &newNode, m)
 		} else {
 			newNode.Link = append(newNode.Link, nil)
 		}
@@ -406,7 +407,7 @@ func (m *Mast) shrink() error {
 			newNode.Value = append(newNode.Value, node.Value[i])
 		}
 	}
-	validateNode(&newNode, m)
+	validateNode(ctx, &newNode, m)
 	if !newNode.isEmpty() {
 		newLink, err := m.store(&newNode)
 		if err != nil {
@@ -420,7 +421,7 @@ func (m *Mast) shrink() error {
 	if m.debug {
 		fmt.Printf("after shrink:\n")
 		fmt.Printf("size=%d height=%d branchFactor=%d\n", m.size, m.height, m.branchFactor)
-		m.dump()
+		m.dump(ctx)
 	}
 	if m.shrinkBelowSize > 1 {
 		m.shrinkBelowSize /= uint64(m.branchFactor)
@@ -429,11 +430,11 @@ func (m *Mast) shrink() error {
 	return nil
 }
 
-func (m *Mast) contains(key interface{}) (bool, error) {
+func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
 	if m.root == nil {
 		return false, nil
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return false, err
 	}
@@ -445,7 +446,7 @@ func (m *Mast) contains(key interface{}) (bool, error) {
 		targetLayer:   uint8min(layer, m.height),
 		currentHeight: m.height,
 	}
-	node, i, err := node.findNode(m, key, &options)
+	node, i, err := node.findNode(ctx, m, key, &options)
 	if err != nil {
 		return false, err
 	}
@@ -460,8 +461,8 @@ func (m *Mast) contains(key interface{}) (bool, error) {
 	return cmp == 0, nil
 }
 
-func (node *mastNode) dump(indent string, mast *Mast) error {
-	str, err := node.string(indent, mast)
+func (node *mastNode) dump(ctx context.Context, indent string, mast *Mast) error {
+	str, err := node.string(ctx, indent, mast)
 	if err != nil {
 		return err
 	}
@@ -469,7 +470,7 @@ func (node *mastNode) dump(indent string, mast *Mast) error {
 	return nil
 }
 
-func (node *mastNode) string(indent string, mast *Mast) (string, error) {
+func (node *mastNode) string(ctx context.Context, indent string, mast *Mast) (string, error) {
 	res := ""
 	for i := range node.Link {
 		var label string
@@ -488,12 +489,12 @@ func (node *mastNode) string(indent string, mast *Mast) (string, error) {
 			res += "}\n"
 			continue
 		}
-		child, err := mast.load(node.Link[i])
+		child, err := mast.load(ctx, node.Link[i])
 		if err != nil {
 			return "", err
 		}
 		res += "\n"
-		childstr, err := child.string(indent+"   ", mast)
+		childstr, err := child.string(ctx, indent+"   ", mast)
 		if err != nil {
 			return "", err
 		}
@@ -503,16 +504,16 @@ func (node *mastNode) string(indent string, mast *Mast) (string, error) {
 	return res, nil
 }
 
-func (m *Mast) dump() error {
+func (m *Mast) dump(ctx context.Context) error {
 	if m.root == nil {
 		fmt.Printf("NIL\n")
 		return nil
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return err
 	}
-	str, err := node.string("   ", m)
+	str, err := node.string(ctx, "   ", m)
 	if err != nil {
 		return err
 	}
@@ -520,17 +521,17 @@ func (m *Mast) dump() error {
 	return nil
 }
 
-func (node *mastNode) iter(f func(interface{}, interface{}) error, mast *Mast) error {
+func (node *mastNode) iter(ctx context.Context, f func(interface{}, interface{}) error, mast *Mast) error {
 	if mast.debug {
 		fmt.Printf("starting iter at node with keys: %v\n", node.Key)
 	}
 	for i, link := range node.Link {
 		if link != nil {
-			child, err := mast.load(link)
+			child, err := mast.load(ctx, link)
 			if err != nil {
 				return err
 			}
-			err = child.iter(f, mast)
+			err = child.iter(ctx, f, mast)
 			if err != nil {
 				return err
 			}
@@ -545,7 +546,7 @@ func (node *mastNode) iter(f func(interface{}, interface{}) error, mast *Mast) e
 	return nil
 }
 
-func validateNode(node *mastNode, mast *Mast) {
+func validateNode(ctx context.Context, node *mastNode, mast *Mast) {
 	if node.expected != nil {
 		if !reflect.DeepEqual(node.expected.Key, node.Key) {
 			fmt.Printf("expected node %v\n", node.expected)
@@ -569,30 +570,30 @@ func validateNode(node *mastNode, mast *Mast) {
 	}
 	if len(node.Link) != len(node.Key)+1 {
 		fmt.Println("DANGIT! {")
-		node.dump("  ", mast)
+		node.dump(ctx, "  ", mast)
 		fmt.Println("}")
 		panic(fmt.Sprintf("node %p has %d links but %d keys", node, len(node.Link), len(node.Key)))
 	}
 	if len(node.Link) != len(node.Value)+1 {
 		fmt.Println("DANGIT! {")
-		node.dump("  ", mast)
+		node.dump(ctx, "  ", mast)
 		fmt.Println("}")
 		panic(fmt.Sprintf("node %p has %d links but %d values", node, len(node.Link), len(node.Value)))
 	}
 }
 
-func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interface{}, error) {
+func (m *Mast) mergeNodes(ctx context.Context, leftLink interface{}, rightLink interface{}) (interface{}, error) {
 	if leftLink == nil {
 		return rightLink, nil
 	}
 	if rightLink == nil {
 		return leftLink, nil
 	}
-	left, err := m.load(leftLink)
+	left, err := m.load(ctx, leftLink)
 	if err != nil {
 		return nil, fmt.Errorf("load left: %w", err)
 	}
-	right, err := m.load(rightLink)
+	right, err := m.load(ctx, rightLink)
 	if err != nil {
 		return nil, fmt.Errorf("load right: %w", err)
 	}
@@ -609,7 +610,7 @@ func (m *Mast) mergeNodes(leftLink interface{}, rightLink interface{}) (interfac
 	combined.Link = append(combined.Link, left.Link[0:len(left.Link)-1]...)
 	combined.Link = append(combined.Link, nil)
 	combined.Link = append(combined.Link, right.Link[1:]...)
-	mergedLink, err := m.mergeNodes(left.Link[len(left.Link)-1], right.Link[0])
+	mergedLink, err := m.mergeNodes(ctx, left.Link[len(left.Link)-1], right.Link[0])
 	if err != nil {
 		return nil, fmt.Errorf("merge: %w", err)
 	}
@@ -631,8 +632,8 @@ func (node *mastNode) xcopy() *mastNode {
 	return &newNode
 }
 
-func (m *Mast) checkRoot() error {
-	node, err := m.load(m.root)
+func (m *Mast) checkRoot(ctx context.Context) error {
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return fmt.Errorf("load: %w", err)
 	}
@@ -663,8 +664,8 @@ func (m *Mast) checkRoot() error {
 	return nil
 }
 
-func (node *mastNode) ToMut(mast *Mast) *mastNode {
-	validateNode(node, mast)
+func (node *mastNode) ToMut(ctx context.Context, mast *Mast) *mastNode {
+	validateNode(ctx, node, mast)
 	if !node.shared {
 		return node
 	}

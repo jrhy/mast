@@ -1,6 +1,7 @@
 package mast
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 )
@@ -20,9 +21,9 @@ type entry struct {
 // Persist is the interface for loading and storing (serialized) tree nodes. The given string identity corresponds to the content which is immutable (never modified).
 type Persist interface {
 	// Store makes the given bytes accessible by the given name. The given string identity corresponds to the content which is immutable (never modified).
-	Store(string, []byte) error
+	Store(context.Context, string, []byte) error
 	// Load retrieves the previously-stored bytes by the given name.
-	Load(string) ([]byte, error)
+	Load(context.Context, string) ([]byte, error)
 }
 
 // RemoteConfig controls how nodes are persisted and loaded.
@@ -58,14 +59,14 @@ type Root struct {
 }
 
 // Delete deletes the entry with given key and value from the tree.
-func (m *Mast) Delete(key interface{}, value interface{}) error {
+func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) error {
 	if m.debug {
 		fmt.Printf("deleting %v...\n", key)
 	}
 	if m.root == nil {
 		return fmt.Errorf("key %v not present in tree", key)
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return fmt.Errorf("load root: %w", err)
 	}
@@ -79,7 +80,7 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 		createMissingNodes: false,
 		path:               []pathEntry{},
 	}
-	node, i, err := node.findNode(m, key, &options)
+	node, i, err := node.findNode(ctx, m, key, &options)
 	if err != nil {
 		return fmt.Errorf("findNode: %w", err)
 	}
@@ -99,11 +100,11 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 		return fmt.Errorf("value not present for given key (found=%v, wanted=%v)", node.Value[i], value)
 	}
 	oldNode := node
-	mergedLink, err := m.mergeNodes(oldNode.Link[i], oldNode.Link[i+1])
+	mergedLink, err := m.mergeNodes(ctx, oldNode.Link[i], oldNode.Link[i+1])
 	if err != nil {
 		return fmt.Errorf("merge: %w", err)
 	}
-	node = node.ToMut(m)
+	node = node.ToMut(ctx, m)
 	node.Dirty()
 	node.Key = append(node.Key[:i], node.Key[i+1:]...)
 	node.Value = append(node.Value[:i], node.Value[i+1:]...)
@@ -111,13 +112,13 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 	node.Link[i] = mergedLink
 	// validateNode(node, m)
 	options.path[len(options.path)-1].node = node
-	err = m.savePathForRoot(options.path)
+	err = m.savePathForRoot(ctx, options.path)
 	if err != nil {
 		return fmt.Errorf("savePathForRoot: %w", err)
 	}
 	m.size--
 	for m.size < m.shrinkBelowSize && m.height > 0 {
-		err = m.shrink()
+		err = m.shrink(ctx)
 		if err != nil {
 			return fmt.Errorf("shrink: %w", err)
 		}
@@ -128,31 +129,33 @@ func (m *Mast) Delete(key interface{}, value interface{}) error {
 // DiffIter invokes the given callback for every entry that is different between this
 // and the given tree.
 func (m *Mast) DiffIter(
+	ctx context.Context,
 	oldMast *Mast,
 	f func(added, removed bool, key, addedValue, removedValue interface{}) (bool, error),
 ) error {
-	return m.diff(oldMast, f, nil)
+	return m.diff(ctx, oldMast, f, nil)
 }
 
 // DiffLinks invokes the given callback for every node that is different between this
 // and the given tree.
 func (m *Mast) DiffLinks(
+	ctx context.Context,
 	oldMast *Mast,
 	f func(removed bool, link interface{}) (bool, error),
 ) error {
-	return m.diff(oldMast, nil, f)
+	return m.diff(ctx, oldMast, nil, f)
 }
 
 // flush serializes changes (new nodes) into the persistent store.
-func (m *Mast) flush() (string, error) {
+func (m *Mast) flush(ctx context.Context) (string, error) {
 	if m.persist == nil {
 		return "", fmt.Errorf("no persistence mechanism set; set RemoteConfig.StoreImmutablePartsWith")
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return "", fmt.Errorf("load root: %w", err)
 	}
-	str, err := node.store(m.persist, m.nodeCache, m.marshal)
+	str, err := node.store(ctx, m.persist, m.nodeCache, m.marshal)
 	if err != nil {
 		return "", err
 	}
@@ -161,11 +164,11 @@ func (m *Mast) flush() (string, error) {
 }
 
 // Get gets the value of the entry with the given key and stores it at the given value pointer. Returns false if the tree doesn't contain the given key.
-func (m *Mast) Get(k interface{}, value interface{}) (bool, error) {
+func (m *Mast) Get(ctx context.Context, k interface{}, value interface{}) (bool, error) {
 	if m.root == nil {
 		return false, nil
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return false, err
 	}
@@ -177,7 +180,7 @@ func (m *Mast) Get(k interface{}, value interface{}) (bool, error) {
 		targetLayer:   uint8min(keyLayer, m.height),
 		currentHeight: m.height,
 	}
-	node, i, err := node.findNode(m, k, &options)
+	node, i, err := node.findNode(ctx, m, k, &options)
 	if err != nil {
 		return false, err
 	}
@@ -205,7 +208,7 @@ func (m *Mast) Get(k interface{}, value interface{}) (bool, error) {
 }
 
 // Insert adds or replaces the value for the given key.
-func (m *Mast) Insert(key interface{}, value interface{}) error {
+func (m *Mast) Insert(ctx context.Context, key interface{}, value interface{}) error {
 	if m.debug {
 		fmt.Printf("inserting %v...\n", key)
 	}
@@ -219,11 +222,11 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 		createMissingNodes: true,
 		path:               []pathEntry{},
 	}
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return err
 	}
-	node, i, err := node.findNode(m, key, &options)
+	node, i, err := node.findNode(ctx, m, key, &options)
 	if err != nil {
 		return err
 	}
@@ -239,15 +242,15 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 			if node.Value[i] == value {
 				return nil
 			}
-			node = node.ToMut(m)
+			node = node.ToMut(ctx, m)
 			node.Dirty()
 			node.Value[i] = value
 			options.path[len(options.path)-1].node = node
-			return m.savePathForRoot(options.path)
+			return m.savePathForRoot(ctx, options.path)
 		}
 	}
 	// XXX do after split, XXX mark tree invalid if split fails
-	node = node.ToMut(m)
+	node = node.ToMut(ctx, m)
 	node.Dirty()
 	if i < len(node.Key) {
 		node.Key = append(node.Key[:i+1], node.Key[i:]...)
@@ -266,14 +269,14 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 	var leftLink interface{}
 	var rightLink interface{}
 	if node.Link[i] != nil {
-		child, err := m.load(node.Link[i])
+		child, err := m.load(ctx, node.Link[i])
 		if err != nil {
 			return err
 		}
 		if m.debug {
 			fmt.Printf("  doing a split, of node with keys %v\n", child.Key)
 		}
-		leftLink, rightLink, err = split(child, key, m)
+		leftLink, rightLink, err = split(ctx, child, key, m)
 		if err != nil {
 			return fmt.Errorf("split: %w", err)
 		}
@@ -288,7 +291,7 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 	node.Link[i] = leftLink
 	node.Link[i+1] = rightLink
 	options.path[len(options.path)-1].node = node
-	err = m.savePathForRoot(options.path)
+	err = m.savePathForRoot(ctx, options.path)
 	if err != nil {
 		return fmt.Errorf("save new root: %w", err)
 	}
@@ -302,9 +305,9 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 		}
 		if m.debug {
 			fmt.Printf("before growing:\n")
-			m.dump()
+			m.dump(ctx)
 		}
-		err = m.grow()
+		err = m.grow(ctx)
 		if err != nil {
 			return fmt.Errorf("grow: %w", err)
 		}
@@ -314,19 +317,19 @@ func (m *Mast) Insert(key interface{}, value interface{}) error {
 }
 
 // Iter iterates over the entries of a tree, invoking the given callback for every entry's key and value.
-func (m *Mast) Iter(f func(interface{}, interface{}) error) error {
-	node, err := m.load(m.root)
+func (m *Mast) Iter(ctx context.Context, f func(interface{}, interface{}) error) error {
+	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return err
 	}
-	return node.iter(f, m)
+	return node.iter(ctx, f, m)
 }
 
 // keys returns the keys of the tree's entries as an array.
-func (m *Mast) keys() ([]interface{}, error) {
+func (m *Mast) keys(ctx context.Context) ([]interface{}, error) {
 	array := make([]interface{}, m.size)
 	i := 0
-	err := m.Iter(func(key interface{}, _ interface{}) error {
+	err := m.Iter(ctx, func(key interface{}, _ interface{}) error {
 		array[i] = key
 		i++
 		return nil
@@ -339,7 +342,7 @@ func (m *Mast) keys() ([]interface{}, error) {
 
 // LoadMast loads a tree from a remote store. The root is loaded
 // and verified; other nodes will be loaded on demand.
-func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
+func (r *Root) LoadMast(ctx context.Context, config RemoteConfig) (*Mast, error) {
 	var link interface{}
 	if r.Link != nil {
 		link = *r.Link
@@ -372,7 +375,7 @@ func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
 	if config.Marshal == nil {
 		m.marshal = defaultMarshal
 	}
-	err := m.checkRoot()
+	err := m.checkRoot(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("checkRoot: %w", err)
 	}
@@ -381,8 +384,8 @@ func (r *Root) LoadMast(config RemoteConfig) (*Mast, error) {
 
 // MakeRoot makes a new persistent root, after ensuring all the changed nodes
 // have been written to the persistent store.
-func (m *Mast) MakeRoot() (*Root, error) {
-	link, err := m.flush()
+func (m *Mast) MakeRoot(ctx context.Context) (*Root, error) {
+	link, err := m.flush(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("flush: %w", err)
 	}
@@ -419,10 +422,10 @@ func (m Mast) Size() uint64 {
 }
 
 // toSlice returns an array of the tree's entries.
-func (m Mast) toSlice() ([]entry, error) {
+func (m Mast) toSlice(ctx context.Context) ([]entry, error) {
 	array := make([]entry, m.size)
 	i := 0
-	err := m.Iter(func(key interface{}, value interface{}) error {
+	err := m.Iter(ctx, func(key interface{}, value interface{}) error {
 		array[i] = entry{key, value}
 		i++
 		return nil
@@ -433,8 +436,8 @@ func (m Mast) toSlice() ([]entry, error) {
 	return array, nil
 }
 
-func (m Mast) Clone() (Mast, error) {
-	newNode, err := m.load(m.root)
+func (m Mast) Clone(ctx context.Context) (Mast, error) {
+	newNode, err := m.load(ctx, m.root)
 	if err != nil {
 		return Mast{}, err
 	}

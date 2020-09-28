@@ -1,6 +1,7 @@
 package mast
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -13,12 +14,12 @@ func NewInMemoryStore() Persist {
 	return inMemoryStore{make(map[string][]byte)}
 }
 
-func (ims inMemoryStore) Store(key string, value []byte) error {
+func (ims inMemoryStore) Store(ctx context.Context, key string, value []byte) error {
 	ims.entries[key] = value
 	return nil
 }
 
-func (ims inMemoryStore) Load(key string) ([]byte, error) {
+func (ims inMemoryStore) Load(ctx context.Context, key string) ([]byte, error) {
 	value, ok := ims.entries[key]
 	if !ok {
 		return nil, fmt.Errorf("InMemoryStore entry not found for %s", key)

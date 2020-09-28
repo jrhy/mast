@@ -1,6 +1,7 @@
 package mast
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var ctx = context.Background()
 var testThingy *testing.T
 
 type expected struct {
@@ -50,7 +52,7 @@ func progress(i interface{}) {
 var FlushCommand = &commands.ProtoCommand{
 	Name: "Flush",
 	RunFunc: func(s commands.SystemUnderTest) commands.Result {
-		_, err := s.(*system).m.flush()
+		_, err := s.(*system).m.flush(ctx)
 		if err != nil {
 			return err
 		}
@@ -93,11 +95,11 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 	slot := int(n) % nSnapshots
 	new := s.(*system).m
 	old := s.(*system).snapshot[slot]
-	_, err := old.flush()
+	_, err := old.flush(ctx)
 	if err != nil {
 		return fmt.Errorf("flush old: %w", err)
 	}
-	_, err = new.flush()
+	_, err = new.flush(ctx)
 	if err != nil {
 		return fmt.Errorf("flush new: %w", err)
 	}
@@ -119,7 +121,7 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 	newLinks1 := map[string]struct{}{}
 	newLinks2 := map[string]struct{}{}
 	// show why the union of these two diffs isn't the same as new.DiffLinks(&empty)
-	err = old.DiffLinks(&empty,
+	err = old.DiffLinks(ctx, &empty,
 		func(removed bool, link interface{}) (bool, error) {
 			if !removed {
 				ls := link.(string)
@@ -134,7 +136,7 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 	if err != nil {
 		return fmt.Errorf("diffLinks old: %w", err)
 	}
-	err = new.DiffLinks(old,
+	err = new.DiffLinks(ctx, old,
 		func(removed bool, link interface{}) (bool, error) {
 			if !removed {
 				ls := link.(string)
@@ -154,11 +156,11 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 	syncedNew := *new
 	syncedNew.persist = NewInMemoryStore()
 	for link := range newLinks {
-		bytes, err := new.persist.Load(link)
+		bytes, err := new.persist.Load(ctx, link)
 		if err != nil {
 			return fmt.Errorf("load newLink: %w", err)
 		}
-		err = syncedNew.persist.Store(link, bytes)
+		err = syncedNew.persist.Store(ctx, link, bytes)
 		if err != nil {
 			return fmt.Errorf("store newLink: %w", err)
 		}
@@ -168,7 +170,7 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 		false: {},
 		true:  {},
 	}
-	err = syncedNew.DiffIter(old,
+	err = syncedNew.DiffIter(ctx, old,
 		func(added bool, removed bool, k interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
 			if added {
 				diffs[false][uint(k.(uint))] = addedValue.(uint)
@@ -186,7 +188,7 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 
 func showLinkDiff(desc string, old *Mast, new *Mast) {
 	fmt.Printf("%s:\n", desc)
-	new.DiffLinks(old,
+	new.DiffLinks(ctx, old,
 		func(removed bool, link interface{}) (bool, error) {
 			verb := "added"
 			if removed {
@@ -265,7 +267,7 @@ func (n diffCommand) Run(s commands.SystemUnderTest) commands.Result {
 		false: {},
 		true:  {},
 	}
-	err := s.(*system).m.DiffIter(old,
+	err := s.(*system).m.DiffIter(ctx, old,
 		func(added bool, removed bool, k interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
 			if added {
 				diffs[false][uint(k.(uint))] = addedValue.(uint)
@@ -346,7 +348,7 @@ type snapshotCommand uint
 func (n snapshotCommand) Run(s commands.SystemUnderTest) commands.Result {
 	slot := int(n) % nSnapshots
 	cur := *s.(*system).m
-	snapshot, err := cur.Clone()
+	snapshot, err := cur.Clone(ctx)
 	if err != nil {
 		return err
 	}
@@ -394,7 +396,7 @@ func (value getCommand) Run(s commands.SystemUnderTest) commands.Result {
 	// fmt.Printf("before get %v:\n", value)
 	// s.(*system).m.dump()
 	var val uint
-	_, err := s.(*system).m.Get(uint(value), &val)
+	_, err := s.(*system).m.Get(ctx, uint(value), &val)
 	if err != nil {
 		return fmt.Errorf("get: %w", err)
 	}
@@ -436,10 +438,10 @@ var genGet = uintCommandGen(
 type deleteCommand uint
 
 func (value deleteCommand) Run(s commands.SystemUnderTest) commands.Result {
-	err := s.(*system).m.Delete(uint(value), uint(value))
+	err := s.(*system).m.Delete(ctx, uint(value), uint(value))
 	if err != nil {
 		fmt.Printf("was attempting to delete %d, %d in tree:\n", uint(value), uint(value))
-		s.(*system).m.dump()
+		s.(*system).m.dump(ctx)
 	}
 	s.(*system).cmdCount++
 	return err
@@ -475,12 +477,12 @@ var genDelete = uintCommandGen(
 type deleteNthCommand uint
 
 func (value deleteNthCommand) Run(s commands.SystemUnderTest) commands.Result {
-	slice, err := s.(*system).m.toSlice()
+	slice, err := s.(*system).m.toSlice(ctx)
 	if err != nil {
 		return fmt.Errorf("slice: %w", err)
 	}
 	entry := slice[uint(value)]
-	err = s.(*system).m.Delete(entry.Key, entry.Value)
+	err = s.(*system).m.Delete(ctx, entry.Key, entry.Value)
 	if err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
@@ -525,7 +527,7 @@ var genDeleteNth = uintCommandGen(
 type insertCommand uint
 
 func (value insertCommand) Run(s commands.SystemUnderTest) commands.Result {
-	err := s.(*system).m.Insert(uint(value), uint(value))
+	err := s.(*system).m.Insert(ctx, uint(value), uint(value))
 	if err != nil {
 		return err
 	}
@@ -565,7 +567,7 @@ var genInsert = uintCommandGen(
 type updateCommand uint
 
 func (value updateCommand) Run(s commands.SystemUnderTest) commands.Result {
-	err := s.(*system).m.Insert(uint(value), uint(value))
+	err := s.(*system).m.Insert(ctx, uint(value), uint(value))
 	if err != nil {
 		return err
 	}
@@ -632,7 +634,7 @@ var (
 			m.branchFactor = 3
 			m.growAfterSize = 3
 			for key, value := range initialState.(*expected).entries {
-				err := m.Insert(uint(key), uint(value))
+				err := m.Insert(ctx, uint(key), uint(value))
 				if err != nil {
 					return err
 				}

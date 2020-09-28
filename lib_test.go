@@ -34,7 +34,7 @@ func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
 func TestNew(t *testing.T) {
 	m := NewInMemory()
 	require.Equal(t, uint64(0), m.Size())
-	root, err := m.load(m.root)
+	root, err := m.load(ctx, m.root)
 	require.NoError(t, err, "failed to load root")
 	require.Equal(t, 1, len(root.Link))
 }
@@ -46,11 +46,11 @@ func TestSplit(t *testing.T) {
 		Value: []interface{}{"", "", ""},
 		Link:  []interface{}{nil, nil, nil, nil},
 	}
-	newLeftLink, newRightLink, err := split(&node, 15, &m)
+	newLeftLink, newRightLink, err := split(ctx, &node, 15, &m)
 	require.NoError(t, err)
-	newLeft, err := m.load(newLeftLink)
+	newLeft, err := m.load(ctx, newLeftLink)
 	require.NoError(t, err)
-	newRight, err := m.load(newRightLink)
+	newRight, err := m.load(ctx, newRightLink)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{10}, newLeft.Key)
 	require.Equal(t, []interface{}{20, 30}, newRight.Key)
@@ -58,18 +58,18 @@ func TestSplit(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	m := NewInMemory()
-	err := m.Insert(50, 50)
+	err := m.Insert(ctx, 50, 50)
 	require.NoError(t, err)
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{50}, node.Key)
 	require.Equal(t, []interface{}{50}, node.Value)
 	require.Equal(t, []interface{}{nil, nil}, node.Link)
 	require.Equal(t, uint64(1), m.size)
 	require.Equal(t, uint8(0), m.height)
-	err = m.Insert(40, 40)
+	err = m.Insert(ctx, 40, 40)
 	require.NoError(t, err)
-	node, err = m.load(m.root)
+	node, err = m.load(ctx, m.root)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{40, 50}, node.Key)
 	require.Equal(t, []interface{}{40, 50}, node.Value)
@@ -77,9 +77,9 @@ func TestInsert(t *testing.T) {
 	require.Equal(t, uint64(2), m.size)
 	require.Equal(t, uint8(0), m.height)
 
-	err = m.Insert(60, 60)
+	err = m.Insert(ctx, 60, 60)
 	require.NoError(t, err)
-	node, err = m.load(m.root)
+	node, err = m.load(ctx, m.root)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{40, 50, 60}, node.Key)
 	require.Equal(t, []interface{}{40, 50, 60}, node.Value)
@@ -87,9 +87,9 @@ func TestInsert(t *testing.T) {
 	require.Equal(t, uint64(3), m.size)
 	require.Equal(t, uint8(0), m.height)
 
-	err = m.Insert(45, 45)
+	err = m.Insert(ctx, 45, 45)
 	require.NoError(t, err)
-	node, err = m.load(m.root)
+	node, err = m.load(ctx, m.root)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{40, 45, 50, 60}, node.Key)
 	require.Equal(t, []interface{}{40, 45, 50, 60}, node.Value)
@@ -103,20 +103,20 @@ func TestInsertGrow(t *testing.T) {
 	for i := 1; i < 17; i++ {
 		var err error
 		if i == 16 {
-			err = m.Insert(i*10, 0)
+			err = m.Insert(ctx, i*10, 0)
 		} else {
-			err = m.Insert(i*10+1, 0)
+			err = m.Insert(ctx, i*10+1, 0)
 		}
 		require.NoError(t, err, "failed to insert %d", i)
 	}
 	require.Equal(t, uint64(16), m.size)
 	require.Equal(t, uint8(0), m.height)
 	i := 17
-	err := m.Insert(i*10+1, 0)
+	err := m.Insert(ctx, i*10+1, 0)
 	require.NoError(t, err, "failed to insert %d", i)
 	require.Equal(t, uint64(17), m.size)
 	require.Equal(t, uint8(1), m.height)
-	node, err := m.load(m.root)
+	node, err := m.load(ctx, m.root)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(node.Link))
 	for i := 1; i < 18; i++ {
@@ -125,7 +125,7 @@ func TestInsertGrow(t *testing.T) {
 		if i == 16 {
 			n = 160
 		}
-		contains, err := m.contains(n)
+		contains, err := m.contains(ctx, n)
 		require.Nil(t, err)
 		require.True(t, contains)
 	}
@@ -136,44 +136,44 @@ func TestInsertSplit(t *testing.T) {
 	for i := 1; i < 17; i++ {
 		var err error
 		if i == 16 {
-			err = m.Insert(i*10, 0)
+			err = m.Insert(ctx, i*10, 0)
 		} else {
-			err = m.Insert(i*10+1, 0)
+			err = m.Insert(ctx, i*10+1, 0)
 		}
 		require.NoError(t, err, "failed to insert %d", i)
 	}
 	require.Equal(t, uint64(16), m.size)
 	require.Equal(t, uint8(0), m.height)
 	i := 171
-	err := m.Insert(i, 0)
+	err := m.Insert(ctx, i, 0)
 	require.NoError(t, err, "failed to insert %d", i)
 	i = 80
-	err = m.Insert(i, 0)
+	err = m.Insert(ctx, i, 0)
 	require.NoError(t, err)
 }
 
 func TestToSlice(t *testing.T) {
 	m := NewInMemory()
-	m.Insert(3, 0)
-	m.Insert(1, 0)
-	m.Insert(2, 0)
+	m.Insert(ctx, 3, 0)
+	m.Insert(ctx, 1, 0)
+	m.Insert(ctx, 2, 0)
 	expected := []entry{
 		{1, 0},
 		{2, 0},
 		{3, 0},
 	}
-	actual, err := m.toSlice()
+	actual, err := m.toSlice(ctx)
 	require.Nil(t, err)
 	require.Equal(t, expected, actual)
 }
 
 func TestKeys(t *testing.T) {
 	m := NewInMemory()
-	m.Insert(3, 0)
-	m.Insert(1, 0)
-	m.Insert(2, 0)
+	m.Insert(ctx, 3, 0)
+	m.Insert(ctx, 1, 0)
+	m.Insert(ctx, 2, 0)
 	expected := []interface{}{1, 2, 3}
-	actual, err := m.keys()
+	actual, err := m.keys(ctx)
 	require.Nil(t, err)
 	require.Equal(t, expected, actual)
 }
@@ -185,7 +185,7 @@ func checkRecall(t *testing.T, to []TestOperation) bool {
 		err := m.apply(to[i : i+1])
 		require.NoError(t, err)
 		actual := make(map[uint]uint)
-		err = m.Iter(func(key interface{}, value interface{}) error {
+		err = m.Iter(ctx, func(key interface{}, value interface{}) error {
 			intKey := key.(uint)
 			uintValue := value.(uint)
 			actual[uint(intKey)] = uintValue
@@ -201,7 +201,7 @@ func checkRecall(t *testing.T, to []TestOperation) bool {
 		assert.Equal(t, expected, actual)
 		if !equal {
 			fmt.Printf("after:\n")
-			m.dump()
+			m.dump(ctx)
 			return false
 		}
 	}
@@ -216,13 +216,13 @@ func checkRecallPow4(t *testing.T, to []TestOperation) bool {
 	var i int
 	var op TestOperation
 	for i, op = range to {
-		err := m.Insert(op.Key, op.Value)
+		err := m.Insert(ctx, op.Key, op.Value)
 		require.NoError(t, err)
 		expected[op.Key] = op.Value
 	}
 
 	actual := make(map[uint]uint)
-	err := m.Iter(func(key interface{}, value interface{}) error {
+	err := m.Iter(ctx, func(key interface{}, value interface{}) error {
 		pow4Key := key.(uint)
 		uintValue := value.(uint)
 		actual[uint(pow4Key)] = uintValue
@@ -248,7 +248,7 @@ func checkRecallPow4(t *testing.T, to []TestOperation) bool {
 	assert.Equal(t, expected, actual)
 	if !equal {
 		fmt.Printf("after:\n")
-		m.dump()
+		m.dump(ctx)
 		return false
 	}
 	return true
@@ -288,7 +288,7 @@ func TestCongruence(t *testing.T) {
 
 func (root *Mast) apply(to []TestOperation) error {
 	for _, to := range to {
-		err := root.Insert(to.Key, to.Value)
+		err := root.Insert(ctx, to.Key, to.Value)
 		if err != nil {
 			return err
 		}
@@ -331,40 +331,40 @@ func testOperations(n int) []TestOperation {
 
 func TestContentHash(t *testing.T) {
 	m := newTestTree(0, "")
-	err := m.Insert(1, "one")
+	err := m.Insert(ctx, 1, "one")
 	require.NoError(t, err)
-	hash1, err := m.flush()
+	hash1, err := m.flush(ctx)
 	require.NoError(t, err)
 	m = newTestTree(0, "")
-	err = m.Insert(2, "two")
+	err = m.Insert(ctx, 2, "two")
 	require.NoError(t, err)
-	hash2, err := m.flush()
+	hash2, err := m.flush(ctx)
 	require.NoError(t, err)
 	require.NotEqual(t, hash1, hash2)
 	m = newTestTree(0, "")
-	err = m.Insert(2, "two")
+	err = m.Insert(ctx, 2, "two")
 	require.NoError(t, err)
-	hash2b, err := m.flush()
+	hash2b, err := m.flush(ctx)
 	require.NoError(t, err)
 	require.Equal(t, hash2b, hash2)
 }
 
 func TestContentHash_DiffersOnUpsert(t *testing.T) {
 	m := newTestTree(0, "")
-	err := m.Insert(1, "one")
+	err := m.Insert(ctx, 1, "one")
 	require.NoError(t, err)
-	hash1, err := m.flush()
+	hash1, err := m.flush(ctx)
 	require.NoError(t, err)
 	m = newTestTree(0, "")
-	err = m.Insert(2, "two")
+	err = m.Insert(ctx, 2, "two")
 	require.NoError(t, err)
-	hash2, err := m.flush()
+	hash2, err := m.flush(ctx)
 	require.NoError(t, err)
 	require.NotEqual(t, hash1, hash2)
 	m = newTestTree(0, "")
-	err = m.Insert(2, "TWO")
+	err = m.Insert(ctx, 2, "TWO")
 	require.NoError(t, err)
-	hash2b, err := m.flush()
+	hash2b, err := m.flush(ctx)
 	require.NoError(t, err)
 	require.NotEqual(t, hash2b, hash2)
 }
@@ -475,12 +475,12 @@ func TestInterestingZeroCase(t *testing.T) {
 
 func TestDiffTrivial(t *testing.T) {
 	m := newTestTree(0, 0)
-	m.Insert(1, 1)
+	m.Insert(ctx, 1, 1)
 	m2 := newTestTree(0, 0)
-	m2.Insert(1, 1)
-	m2.Insert(2, 2)
+	m2.Insert(ctx, 1, 1)
+	m2.Insert(ctx, 2, 2)
 	n := 0
-	m2.DiffIter(&m, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
+	m2.DiffIter(ctx, &m, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
 		assert.True(t, added)
 		assert.False(t, removed)
 		n++
@@ -490,7 +490,7 @@ func TestDiffTrivial(t *testing.T) {
 		return true, nil
 	})
 	n = 0
-	m.DiffIter(&m2, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
+	m.DiffIter(ctx, &m2, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
 		assert.False(t, added)
 		assert.True(t, removed)
 		n++
@@ -546,12 +546,12 @@ func checkDiff(t *testing.T, oldOps []TestOperation, newOps []TestOperation) boo
 		}
 	}
 	actualDiffs := make(map[interface{}]interface{})
-	_, err = new.flush()
+	_, err = new.flush(ctx)
 	require.NoError(t, err)
-	_, err = old.flush()
+	_, err = old.flush(ctx)
 	require.NoError(t, err)
 	new.debug = false
-	new.DiffIter(&old, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
+	new.DiffIter(ctx, &old, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
 		if added {
 			actualDiffs[key] = addedValue
 		} else if removed {
@@ -563,9 +563,9 @@ func checkDiff(t *testing.T, oldOps []TestOperation, newOps []TestOperation) boo
 		fmt.Printf("checkDiff, oldOps=%v, newOps=%v\n", oldOps, newOps)
 
 		fmt.Printf("midpoint tree:\n")
-		old.dump()
+		old.dump(ctx)
 		fmt.Printf("new tree:\n")
-		new.dump()
+		new.dump(ctx)
 		assert.Equal(t, expectedDiffs, actualDiffs)
 		return false
 	}
@@ -574,11 +574,11 @@ func checkDiff(t *testing.T, oldOps []TestOperation, newOps []TestOperation) boo
 
 func TestTreeAssignmentsWorkForVersioning(t *testing.T) {
 	m1 := newTestTree(0, 0)
-	m1.Insert(1, 1)
-	m1.Insert(2, 2)
+	m1.Insert(ctx, 1, 1)
+	m1.Insert(ctx, 2, 2)
 	m2 := m1
-	m2.Insert(3, 3)
-	m2.Insert(4, 4)
+	m2.Insert(ctx, 3, 3)
+	m2.Insert(ctx, 4, 4)
 	assert.Equal(t, uint64(2), m1.Size())
 	assert.Equal(t, uint64(4), m2.Size())
 }
@@ -639,12 +639,12 @@ func TestSplitWithSlide(t *testing.T) {
 }
 
 func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
-	m, err := baseTree.Clone()
+	m, err := baseTree.Clone(ctx)
 	require.NoError(t, err)
-	m2, err := baseTree.Clone()
+	m2, err := baseTree.Clone(ctx)
 	require.NoError(t, err)
 	for _, key := range keys {
-		err := m.Insert(key, "")
+		err := m.Insert(ctx, key, "")
 		assert.NoError(t, err)
 		if err != nil {
 			return false
@@ -652,13 +652,13 @@ func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
 	}
 	if m.debug {
 		fmt.Printf("m: (height %d, size %d, growAfter %d)\n", m.height, m.size, m.growAfterSize)
-		m.dump()
+		m.dump(ctx)
 	}
 	rand.Shuffle(len(keys), func(i, j int) {
 		keys[i], keys[j] = keys[j], keys[i]
 	})
 	for _, key := range keys {
-		err := m2.Insert(key, "")
+		err := m2.Insert(ctx, key, "")
 		assert.NoError(t, err)
 		if err != nil {
 			return false
@@ -666,24 +666,24 @@ func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
 	}
 	if m2.debug {
 		fmt.Printf("m2: (height %d, size %d, growAfter %d)\n", m2.height, m2.size, m2.growAfterSize)
-		m2.dump()
+		m2.dump(ctx)
 	}
 
 	for _, key := range keys {
-		contains, err := m.contains(key)
+		contains, err := m.contains(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, contains, "m expected to contain %v", key)
-		contains, err = m2.contains(key)
+		contains, err = m2.contains(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, contains, "m2 expected to contain %v", key)
 	}
 
-	hash, err := m.flush()
+	hash, err := m.flush(ctx)
 	assert.NoError(t, err)
 	if err != nil {
 		return false
 	}
-	hash2, err := m2.flush()
+	hash2, err := m2.flush(ctx)
 	assert.NoError(t, err)
 	if err != nil {
 		return false
@@ -708,18 +708,18 @@ func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
 	keys = filteredKeys
 
 	for i, key := range keys {
-		err := m.Delete(key, "")
+		err := m.Delete(ctx, key, "")
 		assert.NoError(t, err)
 		if err != nil {
 			return false
 		}
 		for _, key := range keys[:i+1] {
-			contains, err := m.contains(key)
+			contains, err := m.contains(ctx, key)
 			require.NoError(t, err)
 			ok = ok && assert.False(t, contains, "m expected to not contain %v", key)
 		}
 		for _, key := range keys[i+1:] {
-			contains, err := m.contains(key)
+			contains, err := m.contains(ctx, key)
 			require.NoError(t, err)
 			ok = ok && assert.True(t, contains, "m expected to contain %v", key)
 		}
@@ -747,16 +747,16 @@ func TestRemoteExample(t *testing.T) {
 		StoreImmutablePartsWith: inMemoryStore,
 	}
 	root := NewRoot(nil)
-	m, err := root.LoadMast(remoteConfig)
+	m, err := root.LoadMast(ctx, remoteConfig)
 	require.NoError(t, err)
-	err = m.Insert(5, "yay")
+	err = m.Insert(ctx, 5, "yay")
 	require.NoError(t, err)
-	root, err = m.MakeRoot()
+	root, err = m.MakeRoot(ctx)
 	require.NoError(t, err)
-	m, err = root.LoadMast(remoteConfig)
+	m, err = root.LoadMast(ctx, remoteConfig)
 	require.NoError(t, err)
 	var value string
-	contains, err := m.Get(5, &value)
+	contains, err := m.Get(ctx, 5, &value)
 	require.True(t, contains)
 	require.Equal(t, "yay", value)
 }
@@ -772,75 +772,75 @@ func TestStructValues(t *testing.T) {
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	}
 	root := NewRoot(nil)
-	m, err := root.LoadMast(remoteConfig)
+	m, err := root.LoadMast(ctx, remoteConfig)
 	require.NoError(t, err)
-	err = m.Insert(5, foo{"a", true})
+	err = m.Insert(ctx, 5, foo{"a", true})
 	require.NoError(t, err)
-	root, err = m.MakeRoot()
+	root, err = m.MakeRoot(ctx)
 	require.NoError(t, err)
-	m, err = root.LoadMast(remoteConfig)
+	m, err = root.LoadMast(ctx, remoteConfig)
 	require.NoError(t, err)
 	var value foo
-	contains, err := m.Get(5, &value)
+	contains, err := m.Get(ctx, 5, &value)
 	require.True(t, contains)
 	require.Equal(t, foo{"a", true}, value)
 }
 
 func TestStringKeys(t *testing.T) {
-	m, err := NewRoot(nil).LoadMast(RemoteConfig{
+	m, err := NewRoot(nil).LoadMast(ctx, RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              5,
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, m.Insert("hey", 123))
+	require.NoError(t, m.Insert(ctx, "hey", 123))
 	var v int
 
 	// without flushing
-	contains, err := m.Get("hey", &v)
+	contains, err := m.Get(ctx, "hey", &v)
 	require.NoError(t, err)
 	require.True(t, contains)
-	contains, err = m.Get("nonexistent", &v)
+	contains, err = m.Get(ctx, "nonexistent", &v)
 	require.NoError(t, err)
 	require.False(t, contains)
 
-	_, err = m.flush()
+	_, err = m.flush(ctx)
 	require.NoError(t, err)
 
 	// same after loading
-	contains, err = m.Get("hey", &v)
+	contains, err = m.Get(ctx, "hey", &v)
 	require.NoError(t, err)
 	require.True(t, contains)
-	contains, err = m.Get("nonexistent", &v)
+	contains, err = m.Get(ctx, "nonexistent", &v)
 	require.NoError(t, err)
 	require.False(t, contains)
 }
 
 func TestNilValues(t *testing.T) {
-	m, err := NewRoot(nil).LoadMast(RemoteConfig{
+	m, err := NewRoot(nil).LoadMast(ctx, RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              nil,
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, m.Insert("hey", "zazz"))
+	require.NoError(t, m.Insert(ctx, "hey", "zazz"))
 
 	// without flushing
-	contains, err := m.Get("hey", nil)
+	contains, err := m.Get(ctx, "hey", nil)
 	require.NoError(t, err)
 	require.True(t, contains)
-	contains, err = m.Get("nonexistent", nil)
+	contains, err = m.Get(ctx, "nonexistent", nil)
 	require.NoError(t, err)
 	require.False(t, contains)
 
-	_, err = m.flush()
+	_, err = m.flush(ctx)
 	require.NoError(t, err)
 
 	// same after loading
-	contains, err = m.Get("hey", nil)
+	contains, err = m.Get(ctx, "hey", nil)
 	require.NoError(t, err)
 	require.True(t, contains)
-	contains, err = m.Get("nonexistent", nil)
+	contains, err = m.Get(ctx, "nonexistent", nil)
 	require.NoError(t, err)
 	require.False(t, contains)
 }
