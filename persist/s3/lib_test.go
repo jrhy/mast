@@ -2,21 +2,10 @@ package s3_test
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
-	"math"
-	"math/big"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/johannesboyne/gofakes3"
-	"github.com/johannesboyne/gofakes3/backend/s3mem"
 	s3Persist "github.com/jrhy/mast/persist/s3"
-	"github.com/stretchr/testify/assert"
+	"github.com/jrhy/mast/persist/s3test"
 	"github.com/stretchr/testify/require"
 )
 
