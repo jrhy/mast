@@ -40,7 +40,7 @@ func Client() (*s3.S3, string, func()) {
 		backend := s3mem.New()
 		faker := gofakes3.New(backend)
 		ts := httptest.NewServer(faker.Server())
-		closer = func() { ts.Close() }
+		closer = ts.Close
 
 		// configure S3 client
 		s3Config := &aws.Config{

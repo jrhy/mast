@@ -449,3 +449,11 @@ func (m Mast) Clone(ctx context.Context) (Mast, error) {
 	m2.root = newRoot
 	return m2, nil
 }
+
+func (m Mast) IsDirty(ctx context.Context) (bool, error) {
+	root, err := m.load(ctx, m.root)
+	if err != nil {
+		return false, err
+	}
+	return root.dirty, nil
+}

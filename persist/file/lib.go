@@ -24,7 +24,7 @@ func (p Persist) Store(ctx context.Context, name string, bytes []byte) error {
 	path := filepath.Join(p.basepath, name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return ioutil.WriteFile(filepath.Join(p.basepath, name), bytes, 0o644)
+		return ioutil.WriteFile(filepath.Join(p.basepath, name), bytes, 0644)
 	}
 	return nil
 }
