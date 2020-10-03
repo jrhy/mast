@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 // CreateRemoteOptions sets initial parameters for the tree, that would be painful to change after the tree has data.
@@ -155,9 +156,54 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("load root: %w", err)
 	}
-	str, err := node.store(ctx, m.persist, m.nodeCache, m.marshal)
+	storeQ := make(chan func() error, 0)
+	n := 50
+	gate := make(chan interface{}, n)
+	for i := 0; i < n; i++ {
+		gate <- nil
+	}
+	seLock := sync.Mutex{}
+	var firstStoreError error
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for {
+			f := <-storeQ
+			<-gate
+			if f == nil {
+				break
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer func() { gate <- nil }()
+				seLock.Lock()
+				if firstStoreError != nil {
+					seLock.Unlock()
+					return
+				}
+				seLock.Unlock()
+				err := f()
+				if err != nil {
+					seLock.Lock()
+					if firstStoreError == nil {
+						firstStoreError = err
+					}
+					seLock.Unlock()
+				}
+			}()
+		}
+		wg.Done()
+	}()
+
+	str, err := node.store(ctx, m.persist, m.nodeCache, m.marshal, storeQ)
+	close(storeQ)
+	wg.Wait()
 	if err != nil {
 		return "", err
+	}
+	if firstStoreError != nil {
+		return "", firstStoreError
 	}
 	m.root = str
 	return str, nil

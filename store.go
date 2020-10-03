@@ -129,7 +129,13 @@ func (m *Mast) store(node *mastNode) (interface{}, error) {
 	return node, nil
 }
 
-func (node *mastNode) store(ctx context.Context, persist Persist, cache NodeCache, marshal func(interface{}) ([]byte, error)) (string, error) {
+func (node *mastNode) store(
+	ctx context.Context,
+	persist Persist,
+	cache NodeCache,
+	marshal func(interface{}) ([]byte, error),
+	storeQ chan func() error,
+) (string, error) {
 	if !node.dirty {
 		if node.expected != nil {
 			if !reflect.DeepEqual(node.expected.Key, node.Key) {
@@ -166,7 +172,7 @@ func (node *mastNode) store(ctx context.Context, persist Persist, cache NodeCach
 		case string:
 			break
 		case *mastNode:
-			newLink, err := l.store(ctx, persist, cache, marshal)
+			newLink, err := l.store(ctx, persist, cache, marshal, storeQ)
 			if err != nil {
 				return "", fmt.Errorf("flush: %w", err)
 			}
@@ -190,11 +196,17 @@ func (node *mastNode) store(ctx context.Context, persist Persist, cache NodeCach
 			return hash, nil
 		}
 	}
-	err = persist.Store(ctx, hash, encoded)
-	if err != nil {
-		return "", fmt.Errorf("persist store: %w", err)
+	storeQ <- func() error {
+		err = persist.Store(ctx, hash, encoded)
+		if err != nil {
+			return fmt.Errorf("persist store: %w", err)
+		}
+		// fmt.Printf("%s->%s\n", hash, encoded)
+		if cache != nil {
+			cache.Add(hash, node)
+		}
+		return nil
 	}
-	// fmt.Printf("%s->%s\n", hash, encoded)
 	if node.dirty && node.source != nil && *node.source != hash {
 		fmt.Printf("expected node %s %v\n", *node.source, node.expected)
 		fmt.Printf("found    node %s %v\n", hash, node)
@@ -204,8 +216,5 @@ func (node *mastNode) store(ctx context.Context, persist Persist, cache NodeCach
 	node.expected = node.xcopy()
 	node.source = &hash
 	node.shared = true
-	if cache != nil {
-		cache.Add(hash, node)
-	}
 	return hash, nil
 }
