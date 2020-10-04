@@ -12,6 +12,7 @@ func ExampleMast_DiffIter() {
 	v1.Insert(ctx, 100, "asdf")
 	v2, err := v1.Clone(ctx)
 	if err != nil {
+		fmt.Println("ooga booga")
 		panic(err)
 	}
 	v2.Insert(ctx, 0, "bar")
