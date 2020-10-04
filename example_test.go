@@ -9,10 +9,11 @@ func ExampleMast_DiffIter() {
 	ctx := context.Background()
 	v1 := NewInMemory()
 	v1.Insert(ctx, 0, "foo")
-	v1.Insert(ctx, 100, "asdf")
+	v1.Insert(ctx, 100, 	"asdf")
 	v2, err := v1.Clone(ctx)
-	if err != nil {
 		fmt.Println("ooga booga")
+	if err != nil {
+	
 		panic(err)
 	}
 	v2.Insert(ctx, 0, "bar")
