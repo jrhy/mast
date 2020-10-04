@@ -27,8 +27,11 @@ func Client() (*s3.S3, string, func()) {
 				getEnvOrDefault("AWS_SESSION_TOKEN", ""),
 			),
 			Endpoint:         aws.String(getEnv("JRHY_MAST_TEST_S3_ENDPOINT")),
-			Region:           aws.String(getEnv("AWS_DEFAULT_REGION")),
 			S3ForcePathStyle: aws.Bool(true),
+		}
+		config.Region = aws.String(getEnvOrDefault("AWS_REGION", "foo"))
+		if *config.Region != "foo" {
+			config.Endpoint = nil
 		}
 
 		sess, err := session.NewSession(&config)
@@ -57,13 +60,29 @@ func Client() (*s3.S3, string, func()) {
 		newSession := session.New(s3Config)
 		client = s3.New(newSession)
 	}
-	bucketName := randBucketName()
-	_, err := client.CreateBucket(&s3.CreateBucketInput{
-		Bucket: &bucketName,
-	})
-	if err != nil {
-		panic(err)
+
+	bucketName := os.Getenv("JRHY_MAST_TEST_S3_BUCKET")
+	if bucketName != "" {
+		err := emptyBucket(client, bucketName)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		bucketName = randBucketName()
+		_, err := client.CreateBucket(&s3.CreateBucketInput{
+			Bucket: &bucketName,
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
+
+	oldCloser := closer
+	closer = func() {
+		oldCloser()
+		emptyBucket(client, bucketName)
+	}
+
 	return client, bucketName, closer
 }
 
@@ -89,4 +108,42 @@ func randBucketName() string {
 		panic(err)
 	}
 	return fmt.Sprintf("bucket-%s", i)
+}
+
+func emptyBucket(s *s3.S3, bucket string) error {
+	params := &s3.ListObjectsInput{
+		Bucket: &bucket,
+	}
+	for {
+		objects, err := s.ListObjects(params)
+		if err != nil {
+			return err
+		}
+		if len((*objects).Contents) == 0 {
+			return nil
+		}
+		objectsToDelete := make([]*s3.ObjectIdentifier, 0, 1000)
+		for _, object := range objects.Contents {
+			obj := s3.ObjectIdentifier{
+				Key: object.Key,
+			}
+			objectsToDelete = append(objectsToDelete, &obj)
+		}
+		deleteParams := &s3.DeleteObjectsInput{
+			Bucket: &bucket,
+			Delete: &s3.Delete{
+				Objects: objectsToDelete,
+			},
+		}
+		_, err = s.DeleteObjects(deleteParams)
+		if err != nil {
+			return err
+		}
+		if *(*objects).IsTruncated {
+			params.Marker = deleteParams.Delete.Objects[len(deleteParams.Delete.Objects)-1].Key
+		} else {
+			break
+		}
+	}
+	return nil
 }

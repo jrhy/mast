@@ -157,7 +157,7 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("load root: %w", err)
 	}
 	storeQ := make(chan func() error, 0)
-	n := 50
+	n := 40
 	gate := make(chan interface{}, n)
 	for i := 0; i < n; i++ {
 		gate <- nil
@@ -496,10 +496,10 @@ func (m Mast) Clone(ctx context.Context) (Mast, error) {
 	return m2, nil
 }
 
-func (m Mast) IsDirty(ctx context.Context) (bool, error) {
-	root, err := m.load(ctx, m.root)
-	if err != nil {
-		return false, err
+func (m Mast) IsDirty() bool {
+	switch l := m.root.(type) {
+	case *mastNode:
+		return l.dirty
 	}
-	return root.dirty, nil
+	return false
 }
