@@ -462,6 +462,11 @@ func NewRoot( /*config RemoteConfig,*/ remoteOptions *CreateRemoteOptions) *Root
 	return &Root{nil, 0, 0, branchFactor}
 }
 
+// Height returns the number of levels between the leaves and root.
+func (m Mast) Height() uint8 {
+	return m.height
+}
+
 // Size returns the number of entries in the tree.
 func (m Mast) Size() uint64 {
 	return m.size
