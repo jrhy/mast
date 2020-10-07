@@ -409,6 +409,7 @@ func (r *Root) LoadMast(ctx context.Context, config RemoteConfig) (*Mast, error)
 		keyOrder:                       defaultOrder,
 		keyLayer:                       defaultLayer,
 		branchFactor:                   r.BranchFactor,
+		size:                           r.Size,
 		height:                         r.Height,
 		persist:                        config.StoreImmutablePartsWith,
 		shrinkBelowSize:                shrinkSize,
