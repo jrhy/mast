@@ -704,3 +704,7 @@ func (node *mastNode) Dirty() {
 	node.expected = nil
 	node.source = nil
 }
+
+func (m Mast) BranchFactor() uint {
+	return m.branchFactor
+}
