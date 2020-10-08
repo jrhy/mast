@@ -127,8 +127,7 @@ func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) e
 	return nil
 }
 
-// DiffIter invokes the given callback for every entry that is different between this
-// and the given tree.
+// DiffIter invokes the given callback for every entry that is different from the given tree. The iteration will stop if the callback returns keepGoing==false or an error.
 func (m *Mast) DiffIter(
 	ctx context.Context,
 	oldMast *Mast,
@@ -137,8 +136,7 @@ func (m *Mast) DiffIter(
 	return m.diff(ctx, oldMast, f, nil)
 }
 
-// DiffLinks invokes the given callback for every node that is different between this
-// and the given tree.
+// DiffLinks invokes the given callback for every node that is different from the given tree. The iteration will stop if the callback returns keepGoing==false or an error.
 func (m *Mast) DiffLinks(
 	ctx context.Context,
 	oldMast *Mast,

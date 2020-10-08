@@ -201,7 +201,7 @@ func (node *mastNode) store(
 		if err != nil {
 			return fmt.Errorf("persist store: %w", err)
 		}
-		// fmt.Printf("%s->%s\n", hash, encoded)
+		// fmt.Printf("STORE %s->%s\n", hash, encoded)
 		if cache != nil {
 			cache.Add(hash, node)
 		}
