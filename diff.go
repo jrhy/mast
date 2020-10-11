@@ -18,7 +18,10 @@ func (newMast *Mast) diff(
 ) error {
 	alreadyNotifiedOldLink := map[uint8]interface{}{}
 	alreadyNotifiedNewLink := map[uint8]interface{}{}
-	oldStack := newIterItemStack(iterItem{considerLink: oldMast.root})
+	var oldStack iterItemStack
+	if oldMast != nil {
+		oldStack = newIterItemStack(iterItem{considerLink: oldMast.root})
+	}
 	newStack := newIterItemStack(iterItem{considerLink: newMast.root})
 	for {
 		if newMast.debug {
@@ -209,7 +212,7 @@ func (newMast *Mast) diff(
 				} else if cmp == 0 {
 					if old.yield.Value != new.yield.Value {
 						if entryCb != nil {
-							keepGoing, err := entryCb(true, true, new.yield.Key, new.yield.Value, old.yield.Value)
+							keepGoing, err := entryCb(false, false, new.yield.Key, new.yield.Value, old.yield.Value)
 							if err != nil {
 								return fmt.Errorf("callback error: %w", err)
 							}

@@ -127,11 +127,13 @@ func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) e
 	return nil
 }
 
-// DiffIter invokes the given callback for every entry that is different from the given tree. The iteration will stop if the callback returns keepGoing==false or an error.
+// DiffIter invokes the given callback for every entry that is different from the given tree. The iteration will stop if the callback returns keepGoing==false or an error. Callback invocation with added==removed==false signifies entries whose values have changed.
 func (m *Mast) DiffIter(
 	ctx context.Context,
 	oldMast *Mast,
-	f func(added, removed bool, key, addedValue, removedValue interface{}) (bool, error),
+	f func(added, removed bool,
+		key, addedValue, removedValue interface{},
+	) (bool, error),
 ) error {
 	return m.diff(ctx, oldMast, f, nil)
 }
