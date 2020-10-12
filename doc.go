@@ -50,7 +50,7 @@ to test, provide a foundation to build more quickly on.
 
 https://github.com/bodil/im-rs, "Blazing fast immutable collection
 datatypes for Rust", by Bodil Stokke, is an exemplar: the diff algorithm
-and use of property testing, are instructive, and Chunks and PoolRefs 
+and use of property testing, are instructive, and Chunks and PoolRefs
 fill gaps in understanding of Rust's ownership model for library writers
 coming from GC'd languages.
 */
