@@ -18,7 +18,7 @@ func ExampleMast_DiffIter() {
 	v2.Delete(ctx, 100, "asdf")
 	v2.Insert(ctx, 200, "qwerty")
 	v2.DiffIter(ctx, &v1, func(added, removed bool, key, addedValue, removedValue interface{}) (bool, error) {
-		if added && removed {
+		if !added && !removed {
 			fmt.Printf("changed '%v'   from '%v' to '%v'\n", key, removedValue, addedValue)
 		} else if removed {
 			fmt.Printf("removed '%v' value '%v'\n", key, removedValue)

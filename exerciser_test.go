@@ -172,11 +172,11 @@ func (n diffLinksCommand) Run(s commands.SystemUnderTest) commands.Result {
 	}
 	err = syncedNew.DiffIter(ctx, old,
 		func(added bool, removed bool, k interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
-			if added {
+			if added || !removed {
 				diffs[false][uint(k.(uint))] = addedValue.(uint)
 			}
-			if removed {
-				diffs[removed][uint(k.(uint))] = removedValue.(uint)
+			if removed || !added {
+				diffs[true][uint(k.(uint))] = removedValue.(uint)
 			}
 			return true, nil
 		})
@@ -269,10 +269,10 @@ func (n diffCommand) Run(s commands.SystemUnderTest) commands.Result {
 	}
 	err := s.(*system).m.DiffIter(ctx, old,
 		func(added bool, removed bool, k interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
-			if added {
+			if added || !removed {
 				diffs[false][uint(k.(uint))] = addedValue.(uint)
 			}
-			if removed {
+			if removed || !added {
 				diffs[true][uint(k.(uint))] = removedValue.(uint)
 			}
 			return true, nil
