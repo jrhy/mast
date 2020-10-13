@@ -71,10 +71,6 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 	if m.root == nil {
 		return fmt.Errorf("key %v not present in tree", key)
 	}
-	node, err := m.load(ctx, m.root)
-	if err != nil {
-		return fmt.Errorf("load root: %w", err)
-	}
 	keyLayer, err := m.keyLayer(key, m.branchFactor)
 	if err != nil {
 		return fmt.Errorf("layer: %w", err)
@@ -85,27 +81,13 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 		createMissingNodes: false,
 		path:               []pathEntry{},
 	}
-	node, i, err := node.findNode(ctx, m, key, &options)
+	node, i, err := findEntry(ctx, m, key, value, &options)
 	if err != nil {
-		return fmt.Errorf("findNode: %w", err)
-	}
-	if options.targetLayer != options.currentHeight ||
-		i == len(node.Key) {
-		return fmt.Errorf("key %v not present in tree", key)
-	}
-	cmp, err := m.keyOrder(node.Key[i], key)
-	if err != nil {
-		return fmt.Errorf("keyCompare: %w", err)
-	}
-	if cmp != 0 {
-		return fmt.Errorf("key %v not present in tree", key)
-	}
-	if node.Value[i] != value {
-		return fmt.Errorf("value not present for given key (found=%v, wanted=%v)", node.Value[i], value)
+		return err
 	}
 	node, err = deleteEntry(ctx, m, node, i)
 	if err != nil {
-		return fmt.Errorf("deleteEntry: %w", err)
+		return err
 	}
 	options.path[len(options.path)-1].node = node
 	err = m.savePathForRoot(ctx, options.path)
@@ -120,6 +102,32 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 		}
 	}
 	return nil
+}
+
+func findEntry(ctx context.Context, m *Mast, key, value interface{}, options *findOptions) (*mastNode, int, error) {
+	node, err := m.load(ctx, m.root)
+	if err != nil {
+		return nil, 0, fmt.Errorf("load root: %w", err)
+	}
+	node, i, err := node.findNode(ctx, m, key, options)
+	if err != nil {
+		return nil, 0, fmt.Errorf("findNode: %w", err)
+	}
+	if options.targetLayer != options.currentHeight ||
+		i == len(node.Key) {
+		return nil, 0, fmt.Errorf("key %v not present in tree", key)
+	}
+	cmp, err := m.keyOrder(node.Key[i], key)
+	if err != nil {
+		return nil, 0, fmt.Errorf("keyCompare: %w", err)
+	}
+	if cmp != 0 {
+		return nil, 0, fmt.Errorf("key %v not present in tree", key)
+	}
+	if node.Value[i] != value {
+		return nil, 0, fmt.Errorf("value not present for given key (found=%v, wanted=%v)", node.Value[i], value)
+	}
+	return node, i, nil
 }
 
 func deleteEntry(ctx context.Context, m *Mast, node *mastNode, i int) (*mastNode, error) {
