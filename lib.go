@@ -74,10 +74,11 @@ func (m *Mast) savePathForRoot(ctx context.Context, path []pathEntry) error {
 // parent entry with the given key. The key is not expected to already be present in the source
 // node, and will panic--but it would not migrated to the output, so that the caller can decide
 // where to put it and its new children.
-func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (interface{}, interface{}, error) {
+func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (leftLink, rightLink interface{}, err error) {
 	var splitIndex int
 	for splitIndex = 0; splitIndex < len(node.Key); splitIndex++ {
-		cmp, err := mast.keyOrder(node.Key[splitIndex], key)
+		var cmp int
+		cmp, err = mast.keyOrder(node.Key[splitIndex], key)
 		if err != nil {
 			return nil, nil, fmt.Errorf("keyCompare: %w", err)
 		}
@@ -88,7 +89,7 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (in
 			break
 		}
 	}
-	var leftLink, tooBigLink interface{} = nil, nil
+	var tooBigLink interface{} = nil
 	left := mastNode{
 		make([]interface{}, 0, cap(node.Key)),
 		make([]interface{}, 0, cap(node.Value)),
@@ -102,7 +103,8 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (in
 	// repartition the left and right subtrees based on the new key
 	leftMaxLink := left.Link[len(left.Link)-1]
 	if leftMaxLink != nil {
-		leftMax, err := mast.load(ctx, leftMaxLink)
+		var leftMax *mastNode
+		leftMax, err = mast.load(ctx, leftMaxLink)
 		if mast.debug {
 			fmt.Printf("  splitting leftMax, node with keys: %v\n", leftMax.Key)
 		}
@@ -118,14 +120,12 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (in
 		}
 		left.Link[len(left.Link)-1] = leftMaxLink
 	}
-	var err error
 	if !left.isEmpty() {
 		leftLink, err = mast.store(&left)
 		if err != nil {
 			return nil, nil, fmt.Errorf("store left: %w", err)
 		}
 	}
-	var rightLink interface{}
 	right := mastNode{
 		make([]interface{}, 0, cap(node.Key)),
 		make([]interface{}, 0, cap(node.Value)),

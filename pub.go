@@ -273,7 +273,7 @@ func (m *Mast) Get(ctx context.Context, k, value interface{}) (bool, error) {
 }
 
 // Insert adds or replaces the value for the given key.
-func (m *Mast) Insert(ctx context.Context, key interface{}, value interface{}) error {
+func (m *Mast) Insert(ctx context.Context, key, value interface{}) error {
 	if m.debug {
 		fmt.Printf("inserting %v...\n", key)
 	}

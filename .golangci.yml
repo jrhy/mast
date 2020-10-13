@@ -73,11 +73,11 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - funlen
+      #- funlen
     - gochecknoinits
     - goconst
     - gocritic
-    - gocyclo
+      #- gocyclo
     - gofmt
     - goimports
     - golint
@@ -130,6 +130,7 @@ issues:
       text: "unnecessaryDefer:"
 
 run:
+  tests: false
   skip-dirs:
     - test/testdata_etc
     - internal/cache
