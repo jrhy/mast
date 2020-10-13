@@ -301,34 +301,6 @@ type TestOperation struct {
 	Value uint
 }
 
-type operation int
-
-const (
-	Insert operation = iota
-	Delete
-)
-
-/*
-func testOperations(n int) []TestOperation {
-	res := make([]TestOperation, n)
-	for i := 0; i < n; i++ {
-		var operation operation
-		if rand.Int()%2 == 0 {
-			operation = Insert
-		} else {
-			operation = Delete
-		}
-		testOperation := TestOperation{
-			operation,
-			rand.Int31(),
-			rand.Int31(),
-		}
-		res[i] = testOperation
-	}
-	return res
-}
-*/
-
 func TestContentHash(t *testing.T) {
 	m := newTestTree(0, "")
 	err := m.Insert(ctx, 1, "one")
@@ -747,13 +719,13 @@ func TestRemoteExample(t *testing.T) {
 		StoreImmutablePartsWith: inMemoryStore,
 	}
 	root := NewRoot(nil)
-	m, err := root.LoadMast(ctx, remoteConfig)
+	m, err := root.LoadMast(ctx, &remoteConfig)
 	require.NoError(t, err)
 	err = m.Insert(ctx, 5, "yay")
 	require.NoError(t, err)
 	root, err = m.MakeRoot(ctx)
 	require.NoError(t, err)
-	m, err = root.LoadMast(ctx, remoteConfig)
+	m, err = root.LoadMast(ctx, &remoteConfig)
 	require.NoError(t, err)
 	var value string
 	contains, err := m.Get(ctx, 5, &value)
@@ -772,13 +744,13 @@ func TestStructValues(t *testing.T) {
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	}
 	root := NewRoot(nil)
-	m, err := root.LoadMast(ctx, remoteConfig)
+	m, err := root.LoadMast(ctx, &remoteConfig)
 	require.NoError(t, err)
 	err = m.Insert(ctx, 5, foo{"a", true})
 	require.NoError(t, err)
 	root, err = m.MakeRoot(ctx)
 	require.NoError(t, err)
-	m, err = root.LoadMast(ctx, remoteConfig)
+	m, err = root.LoadMast(ctx, &remoteConfig)
 	require.NoError(t, err)
 	var value foo
 	contains, err := m.Get(ctx, 5, &value)
@@ -787,7 +759,7 @@ func TestStructValues(t *testing.T) {
 }
 
 func TestStringKeys(t *testing.T) {
-	m, err := NewRoot(nil).LoadMast(ctx, RemoteConfig{
+	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              5,
 		StoreImmutablePartsWith: NewInMemoryStore(),
@@ -817,7 +789,7 @@ func TestStringKeys(t *testing.T) {
 }
 
 func TestNilValues(t *testing.T) {
-	m, err := NewRoot(nil).LoadMast(ctx, RemoteConfig{
+	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              nil,
 		StoreImmutablePartsWith: NewInMemoryStore(),

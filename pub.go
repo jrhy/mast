@@ -44,7 +44,9 @@ type RemoteConfig struct {
 	// Marshal function, defaults to JSON
 	Marshal func(interface{}) ([]byte, error)
 
-	// UnmarshalerUsesRegisteredTypes indicates that the unmarshaler will know how to deserialize an interface{} for a key/value in an entry.  By default, JSON decoding doesn't do this, so is done in two stages, the first to a JsonRawMessage, the second to the actual key/value type.
+	// UnmarshalerUsesRegisteredTypes indicates that the unmarshaler will know how to deserialize an
+	// interface{} for a key/value in an entry.  By default, JSON decoding doesn't do this, so is done
+	// in two stages, the first to a JsonRawMessage, the second to the actual key/value type.
 	UnmarshalerUsesRegisteredTypes bool
 
 	// NodeCache caches deserialized nodes and may be shared across multiple trees.
@@ -60,7 +62,7 @@ type Root struct {
 }
 
 // Delete deletes the entry with given key and value from the tree.
-func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) error {
+func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 	if m.debug {
 		fmt.Printf("deleting %v...\n", key)
 	}
@@ -85,7 +87,6 @@ func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) e
 	if err != nil {
 		return fmt.Errorf("findNode: %w", err)
 	}
-	// validateNode(node, m)
 	if options.targetLayer != options.currentHeight ||
 		i == len(node.Key) {
 		return fmt.Errorf("key %v not present in tree", key)
@@ -111,7 +112,6 @@ func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) e
 	node.Value = append(node.Value[:i], node.Value[i+1:]...)
 	node.Link = append(node.Link[:i], node.Link[i+1:]...)
 	node.Link[i] = mergedLink
-	// validateNode(node, m)
 	options.path[len(options.path)-1].node = node
 	err = m.savePathForRoot(ctx, options.path)
 	if err != nil {
@@ -127,7 +127,9 @@ func (m *Mast) Delete(ctx context.Context, key interface{}, value interface{}) e
 	return nil
 }
 
-// DiffIter invokes the given callback for every entry that is different from the given tree. The iteration will stop if the callback returns keepGoing==false or an error. Callback invocation with added==removed==false signifies entries whose values have changed.
+// DiffIter invokes the given callback for every entry that is different from the given tree. The
+// iteration will stop if the callback returns keepGoing==false or an error. Callback invocation
+// with added==removed==false signifies entries whose values have changed.
 func (m *Mast) DiffIter(
 	ctx context.Context,
 	oldMast *Mast,
@@ -156,7 +158,7 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("load root: %w", err)
 	}
-	storeQ := make(chan func() error, 0)
+	storeQ := make(chan func() error)
 	n := 40
 	gate := make(chan interface{}, n)
 	for i := 0; i < n; i++ {
@@ -210,7 +212,7 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 }
 
 // Get gets the value of the entry with the given key and stores it at the given value pointer. Returns false if the tree doesn't contain the given key.
-func (m *Mast) Get(ctx context.Context, k interface{}, value interface{}) (bool, error) {
+func (m *Mast) Get(ctx context.Context, k, value interface{}) (bool, error) {
 	if m.root == nil {
 		return false, nil
 	}
@@ -243,9 +245,6 @@ func (m *Mast) Get(ctx context.Context, k interface{}, value interface{}) (bool,
 	}
 	if value != nil {
 		if node.Value[i] == nil {
-			//if !reflect.ValueOf(value).IsZero() {
-			//return false, fmt.Errorf("cannot set return pointer for nil node value")
-			//}
 			return true, nil
 		}
 		reflect.ValueOf(value).Elem().Set(reflect.ValueOf(node.Value[i]))
@@ -388,7 +387,7 @@ func (m *Mast) keys(ctx context.Context) ([]interface{}, error) {
 
 // LoadMast loads a tree from a remote store. The root is loaded
 // and verified; other nodes will be loaded on demand.
-func (r *Root) LoadMast(ctx context.Context, config RemoteConfig) (*Mast, error) {
+func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error) {
 	var link interface{}
 	if r.Link != nil {
 		link = *r.Link
@@ -464,17 +463,17 @@ func NewRoot( /*config RemoteConfig,*/ remoteOptions *CreateRemoteOptions) *Root
 }
 
 // Height returns the number of levels between the leaves and root.
-func (m Mast) Height() uint8 {
+func (m *Mast) Height() uint8 {
 	return m.height
 }
 
 // Size returns the number of entries in the tree.
-func (m Mast) Size() uint64 {
+func (m *Mast) Size() uint64 {
 	return m.size
 }
 
 // toSlice returns an array of the tree's entries.
-func (m Mast) toSlice(ctx context.Context) ([]entry, error) {
+func (m *Mast) toSlice(ctx context.Context) ([]entry, error) {
 	array := make([]entry, m.size)
 	i := 0
 	err := m.Iter(ctx, func(key interface{}, value interface{}) error {
@@ -488,12 +487,12 @@ func (m Mast) toSlice(ctx context.Context) ([]entry, error) {
 	return array, nil
 }
 
-func (m Mast) Clone(ctx context.Context) (Mast, error) {
+func (m *Mast) Clone(ctx context.Context) (Mast, error) {
 	newNode, err := m.load(ctx, m.root)
 	if err != nil {
 		return Mast{}, err
 	}
-	m2 := m
+	m2 := *m
 	newRoot, err := newNode.ToShared()
 	if err != nil {
 		return Mast{}, err
@@ -502,10 +501,10 @@ func (m Mast) Clone(ctx context.Context) (Mast, error) {
 	return m2, nil
 }
 
-func (m Mast) IsDirty() bool {
-	switch l := m.root.(type) {
-	case *mastNode:
-		return l.dirty
+// IsDirty signifies that in-memory values have been Set() or merged that haven't been Save()d.
+func (m *Mast) IsDirty() bool {
+	if node, ok := m.root.(*mastNode); ok {
+		return node.dirty
 	}
 	return false
 }

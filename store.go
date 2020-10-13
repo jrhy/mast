@@ -50,9 +50,6 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unmarshaling %s: %w", l, err)
 		}
-		// if m.debug {
-		// fmt.Printf("loaded stringNode: %v\n", stringNode)
-		// }
 		if len(stringNode.Key) != len(stringNode.Value) {
 			return nil, fmt.Errorf("cannot unmarshal %s: mismatched keys and values", l)
 		}

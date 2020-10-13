@@ -10,7 +10,7 @@ type iterItem struct {
 	yield        entry
 }
 
-func (newMast *Mast) diff(
+func (m *Mast) diff(
 	ctx context.Context,
 	oldMast *Mast,
 	entryCb func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error),
@@ -22,24 +22,24 @@ func (newMast *Mast) diff(
 	if oldMast != nil {
 		oldStack = newIterItemStack(iterItem{considerLink: oldMast.root})
 	}
-	newStack := newIterItemStack(iterItem{considerLink: newMast.root})
+	newStack := newIterItemStack(iterItem{considerLink: m.root})
 	for {
-		if newMast.debug {
+		if m.debug {
 			fmt.Printf("diff() iteration:\n")
 			fmt.Printf("  oldStack: %v\n", oldStack)
 			fmt.Printf("  newStack: %v\n", newStack)
 		}
-		old := oldStack.pop()
-		new := newStack.pop()
-		if old == nil && new == nil {
-			if newMast.debug {
+		o := oldStack.pop()
+		n := newStack.pop()
+		if o == nil && n == nil {
+			if m.debug {
 				fmt.Printf("  done\n")
 			}
 			return nil
-		} else if old == nil && new != nil {
-			if new.considerLink != nil {
-				if linkCb != nil && !newMast.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, new.considerLink) {
-					keepGoing, err := linkCb(false, new.considerLink)
+		} else if o == nil && n != nil {
+			if n.considerLink != nil {
+				if linkCb != nil && !m.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, n.considerLink) {
+					keepGoing, err := linkCb(false, n.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
 					}
@@ -47,14 +47,14 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				newNode, err := newMast.load(ctx, new.considerLink)
+				newNode, err := m.load(ctx, n.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
-				newStack.pushNode(newNode, newMast)
+				newStack.pushNode(newNode, m)
 			} else {
 				if entryCb != nil {
-					keepGoing, err := entryCb(true, false, new.yield.Key, new.yield.Value, nil)
+					keepGoing, err := entryCb(true, false, n.yield.Key, n.yield.Value, nil)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
 					}
@@ -63,10 +63,10 @@ func (newMast *Mast) diff(
 					}
 				}
 			}
-		} else if old != nil && new == nil {
-			if old.considerLink != nil {
-				if linkCb != nil && !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, old.considerLink) {
-					keepGoing, err := linkCb(true, old.considerLink)
+		} else if o != nil && n == nil {
+			if o.considerLink != nil {
+				if linkCb != nil && !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, o.considerLink) {
+					keepGoing, err := linkCb(true, o.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
 					}
@@ -74,14 +74,14 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				oldNode, err := oldMast.load(ctx, old.considerLink)
+				oldNode, err := oldMast.load(ctx, o.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
 				oldStack.pushNode(oldNode, oldMast)
 			} else {
 				if entryCb != nil {
-					keepGoing, err := entryCb(false, true, old.yield.Key, nil, old.yield.Value)
+					keepGoing, err := entryCb(false, true, o.yield.Key, nil, o.yield.Value)
 					if err != nil {
 						return fmt.Errorf("callback error: %w", err)
 					}
@@ -91,14 +91,14 @@ func (newMast *Mast) diff(
 				}
 			}
 		} else {
-			if old.considerLink != nil && new.considerLink != nil {
-				if old.considerLink != new.considerLink {
-					if newMast.debug {
+			if o.considerLink != nil && n.considerLink != nil {
+				if o.considerLink != n.considerLink {
+					if m.debug {
 						fmt.Printf("  old(consider) new(consider) and links differ\n")
 					}
 					if linkCb != nil {
-						if !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, old.considerLink) {
-							keepGoing, err := linkCb(true, old.considerLink)
+						if !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, o.considerLink) {
+							keepGoing, err := linkCb(true, o.considerLink)
 							if err != nil {
 								return fmt.Errorf("callback: %w", err)
 							}
@@ -106,8 +106,8 @@ func (newMast *Mast) diff(
 								return nil
 							}
 						}
-						if !newMast.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, new.considerLink) {
-							keepGoing, err := linkCb(false, new.considerLink)
+						if !m.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, n.considerLink) {
+							keepGoing, err := linkCb(false, n.considerLink)
 							if err != nil {
 								return fmt.Errorf("callback: %w", err)
 							}
@@ -116,53 +116,53 @@ func (newMast *Mast) diff(
 							}
 						}
 					}
-					oldNode, err := oldMast.load(ctx, old.considerLink)
+					oldNode, err := oldMast.load(ctx, o.considerLink)
 					if err != nil {
 						return fmt.Errorf("load: %w", err)
 					}
 					if len(oldNode.Link) == 1 {
 						oldStack.pushLink(oldNode.Link[0])
-						newStack.push(new)
-						if newMast.debug {
+						newStack.push(n)
+						if m.debug {
 							fmt.Printf("  oldStack descending through empty intermediate\n")
 						}
 						continue
 					}
 					oldKey := oldNode.Key[0]
-					newNode, err := newMast.load(ctx, new.considerLink)
+					newNode, err := m.load(ctx, n.considerLink)
 					if err != nil {
 						return fmt.Errorf("load: %w", err)
 					}
 					if len(newNode.Link) == 1 {
-						oldStack.push(old)
+						oldStack.push(o)
 						newStack.pushLink(newNode.Link[0])
-						if newMast.debug {
+						if m.debug {
 							fmt.Printf("  newStack descending through empty intermediate\n")
 						}
 						continue
 					}
 					newKey := newNode.Key[0]
-					cmp, err := newMast.keyOrder(oldKey, newKey)
+					cmp, err := m.keyOrder(oldKey, newKey)
 					if err != nil {
 						return fmt.Errorf("keyCompare: %w", err)
 					}
-					if newMast.debug {
+					if m.debug {
 						fmt.Printf("  oldKey=%v.compare(newKey=%v): %d\n", oldKey, newKey, cmp)
 					}
 					if cmp < 0 {
 						oldStack.pushNode(oldNode, oldMast)
-						newStack.push(new)
+						newStack.push(n)
 					} else if cmp > 0 {
-						oldStack.push(old)
-						newStack.pushNode(newNode, newMast)
+						oldStack.push(o)
+						newStack.pushNode(newNode, m)
 					} else {
 						oldStack.pushNode(oldNode, oldMast)
-						newStack.pushNode(newNode, newMast)
+						newStack.pushNode(newNode, m)
 					}
 				}
-			} else if old.considerLink != nil && new.considerLink == nil {
-				if linkCb != nil && !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, old.considerLink) {
-					keepGoing, err := linkCb(true, old.considerLink)
+			} else if o.considerLink != nil && n.considerLink == nil {
+				if linkCb != nil && !oldMast.alreadyNotified(ctx, "old", alreadyNotifiedOldLink, o.considerLink) {
+					keepGoing, err := linkCb(true, o.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
 					}
@@ -170,15 +170,15 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				oldNode, err := oldMast.load(ctx, old.considerLink)
+				oldNode, err := oldMast.load(ctx, o.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
 				oldStack.pushNode(oldNode, oldMast)
-				newStack.push(new)
-			} else if old.considerLink == nil && new.considerLink != nil {
-				if linkCb != nil && !newMast.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, new.considerLink) {
-					keepGoing, err := linkCb(false, new.considerLink)
+				newStack.push(n)
+			} else if o.considerLink == nil && n.considerLink != nil {
+				if linkCb != nil && !m.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, n.considerLink) {
+					keepGoing, err := linkCb(false, n.considerLink)
 					if err != nil {
 						return fmt.Errorf("callback: %w", err)
 					}
@@ -186,22 +186,22 @@ func (newMast *Mast) diff(
 						return nil
 					}
 				}
-				newNode, err := newMast.load(ctx, new.considerLink)
+				newNode, err := m.load(ctx, n.considerLink)
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
-				oldStack.push(old)
-				newStack.pushNode(newNode, newMast)
+				oldStack.push(o)
+				newStack.pushNode(newNode, m)
 			} else {
 				// both yields
-				cmp, err := newMast.keyOrder(old.yield.Key, new.yield.Key)
+				cmp, err := m.keyOrder(o.yield.Key, n.yield.Key)
 				if err != nil {
 					return fmt.Errorf("keyCompare: %w", err)
 				}
 				if cmp < 0 {
-					newStack.push(new)
+					newStack.push(n)
 					if entryCb != nil {
-						keepGoing, err := entryCb(false, true, old.yield.Key, nil, old.yield.Value)
+						keepGoing, err := entryCb(false, true, o.yield.Key, nil, o.yield.Value)
 						if err != nil {
 							return fmt.Errorf("callback error: %w", err)
 						}
@@ -210,9 +210,9 @@ func (newMast *Mast) diff(
 						}
 					}
 				} else if cmp == 0 {
-					if old.yield.Value != new.yield.Value {
+					if o.yield.Value != n.yield.Value {
 						if entryCb != nil {
-							keepGoing, err := entryCb(false, false, new.yield.Key, new.yield.Value, old.yield.Value)
+							keepGoing, err := entryCb(false, false, n.yield.Key, n.yield.Value, o.yield.Value)
 							if err != nil {
 								return fmt.Errorf("callback error: %w", err)
 							}
@@ -222,9 +222,9 @@ func (newMast *Mast) diff(
 						}
 					}
 				} else {
-					oldStack.push(old)
+					oldStack.push(o)
 					if entryCb != nil {
-						keepGoing, err := entryCb(true, false, new.yield.Key, new.yield.Value, nil)
+						keepGoing, err := entryCb(true, false, n.yield.Key, n.yield.Value, nil)
 						if err != nil {
 							return fmt.Errorf("callback error: %w", err)
 						}

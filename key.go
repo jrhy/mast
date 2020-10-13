@@ -19,7 +19,7 @@ func init() {
 	crcTable = crc64.MakeTable(crc64.ECMA)
 }
 
-func defaultOrder(i interface{}, i2 interface{}) (int, error) {
+func defaultOrder(i, i2 interface{}) (int, error) {
 	switch v := i.(type) {
 	case Key:
 		if v2, ok := i2.(Key); ok {

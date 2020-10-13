@@ -73,7 +73,6 @@ func (m *Mast) savePathForRoot(ctx context.Context, path []pathEntry) error {
 // Splits the given node into two: left and right, so they could be the left+right children of a parent entry with the given key. The key is not expected to already be present in the source node, and will panic--but it would not migrated to the output, so that the caller can decide where to put it and its new children.
 func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (interface{}, interface{}, error) {
 	var splitIndex int
-	var err error
 	for splitIndex = 0; splitIndex < len(node.Key); splitIndex++ {
 		cmp, err := mast.keyOrder(node.Key[splitIndex], key)
 		if err != nil {
@@ -116,6 +115,7 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (in
 		}
 		left.Link[len(left.Link)-1] = leftMaxLink
 	}
+	var err error
 	if !left.isEmpty() {
 		leftLink, err = mast.store(&left)
 		if err != nil {
@@ -179,7 +179,7 @@ type findOptions struct {
 func (node *mastNode) findNode(ctx context.Context, m *Mast, key interface{}, options *findOptions) (*mastNode, int, error) {
 	i := len(node.Key)
 	if len(node.Link) != i+1 {
-		node.dump(ctx, "  ", m)
+		node.dump(ctx, m)
 		panic(fmt.Sprintf("node %p doesn't have N+1 links", node))
 	}
 	var err error
@@ -237,7 +237,7 @@ func (node *mastNode) follow(ctx context.Context, i int, createOk bool, mast *Ma
 	}
 }
 
-func uint8min(x uint8, y uint8) uint8 {
+func uint8min(x, y uint8) uint8 {
 	if x < y {
 		return x
 	}
@@ -245,13 +245,13 @@ func uint8min(x uint8, y uint8) uint8 {
 }
 
 func emptyNode(branchFactor int) mastNode {
-	new := mastNode{
+	newNode := mastNode{
 		Key:   make([]interface{}, 0, branchFactor),
 		Value: make([]interface{}, 0, branchFactor),
 		Link:  make([]interface{}, 1, branchFactor+1),
 	}
-	new.Link[0] = nil
-	return new
+	newNode.Link[0] = nil
+	return newNode
 }
 
 func emptyNodePointer(branchFactor int) *mastNode {
@@ -319,14 +319,12 @@ func (m *Mast) grow(ctx context.Context) error {
 			panic("new node has wrong number of links")
 		}
 		start = i + 1
-		// validateNode(&newNode, m)
 	}
-	// if start <= len(node.Key) {
 	newRightNode := node.extract(start, len(node.Key))
 	if newRightNode != nil {
 		if m.debug {
 			fmt.Printf("extracted right:\n")
-			newRightNode.dump(ctx, "  ", m)
+			newRightNode.dump(ctx, m)
 		}
 		newRightLink, err := m.store(newRightNode)
 		if err != nil {
@@ -334,7 +332,6 @@ func (m *Mast) grow(ctx context.Context) error {
 		}
 		newNode.Link[len(newNode.Link)-1] = newRightLink
 	}
-	// validateNode(&newNode, m)
 	newNode.dirty = true
 	newNode.expected = nil
 	newNode.source = nil
@@ -394,10 +391,9 @@ func (m *Mast) shrink(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("load child: %w", err)
 			}
-			// validateNode(child, m)
-			newNode.Key = append(newNode.Key, child.Key[:]...)
-			newNode.Value = append(newNode.Value, child.Value[:]...)
-			newNode.Link = append(newNode.Link, child.Link[:]...)
+			newNode.Key = append(newNode.Key, child.Key...)
+			newNode.Value = append(newNode.Value, child.Value...)
+			newNode.Link = append(newNode.Link, child.Link...)
 			validateNode(ctx, &newNode, m)
 		} else {
 			newNode.Link = append(newNode.Link, nil)
@@ -461,13 +457,12 @@ func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
 	return cmp == 0, nil
 }
 
-func (node *mastNode) dump(ctx context.Context, indent string, mast *Mast) error {
-	str, err := node.string(ctx, indent, mast)
+func (node *mastNode) dump(ctx context.Context, mast *Mast) {
+	str, err := node.string(ctx, "  ", mast)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	fmt.Printf("%s", str)
-	return nil
 }
 
 func (node *mastNode) string(ctx context.Context, indent string, mast *Mast) (string, error) {
@@ -504,21 +499,20 @@ func (node *mastNode) string(ctx context.Context, indent string, mast *Mast) (st
 	return res, nil
 }
 
-func (m *Mast) dump(ctx context.Context) error {
+func (m *Mast) dump(ctx context.Context) {
 	if m.root == nil {
 		fmt.Printf("NIL\n")
-		return nil
+		return
 	}
 	node, err := m.load(ctx, m.root)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	str, err := node.string(ctx, "   ", m)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	fmt.Printf("{\n%s}\n", str)
-	return nil
 }
 
 func (node *mastNode) iter(ctx context.Context, f func(interface{}, interface{}) error, mast *Mast) error {
@@ -570,19 +564,19 @@ func validateNode(ctx context.Context, node *mastNode, mast *Mast) {
 	}
 	if len(node.Link) != len(node.Key)+1 {
 		fmt.Println("DANGIT! {")
-		node.dump(ctx, "  ", mast)
+		node.dump(ctx, mast)
 		fmt.Println("}")
 		panic(fmt.Sprintf("node %p has %d links but %d keys", node, len(node.Link), len(node.Key)))
 	}
 	if len(node.Link) != len(node.Value)+1 {
 		fmt.Println("DANGIT! {")
-		node.dump(ctx, "  ", mast)
+		node.dump(ctx, mast)
 		fmt.Println("}")
 		panic(fmt.Sprintf("node %p has %d links but %d values", node, len(node.Link), len(node.Value)))
 	}
 }
 
-func (m *Mast) mergeNodes(ctx context.Context, leftLink interface{}, rightLink interface{}) (interface{}, error) {
+func (m *Mast) mergeNodes(ctx context.Context, leftLink, rightLink interface{}) (interface{}, error) {
 	if leftLink == nil {
 		return rightLink, nil
 	}
@@ -705,6 +699,7 @@ func (node *mastNode) Dirty() {
 	node.source = nil
 }
 
-func (m Mast) BranchFactor() uint {
+// BranchFactor returns the ideal number of entries that are stored per node.
+func (m *Mast) BranchFactor() uint {
 	return m.branchFactor
 }

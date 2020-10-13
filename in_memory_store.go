@@ -32,7 +32,7 @@ func (ims *inMemoryStore) Load(ctx context.Context, key string) ([]byte, error) 
 	value, ok := ims.entries[key]
 	ims.l.Unlock()
 	if !ok {
-		return nil, fmt.Errorf("InMemoryStore entry not found for %s", key)
+		return nil, fmt.Errorf("inMemoryStore entry not found for %s", key)
 	}
 	return value, nil
 }
