@@ -19,9 +19,11 @@ type entry struct {
 	Value interface{}
 }
 
-// Persist is the interface for loading and storing (serialized) tree nodes. The given string identity corresponds to the content which is immutable (never modified).
+// Persist is the interface for loading and storing (serialized) tree nodes. The given string
+// identity corresponds to the content which is immutable (never modified).
 type Persist interface {
-	// Store makes the given bytes accessible by the given name. The given string identity corresponds to the content which is immutable (never modified).
+	// Store makes the given bytes accessible by the given name. The given string identity corresponds
+	// to the content which is immutable (never modified).
 	Store(context.Context, string, []byte) error
 	// Load retrieves the previously-stored bytes by the given name.
 	Load(context.Context, string) ([]byte, error)
@@ -140,7 +142,8 @@ func (m *Mast) DiffIter(
 	return m.diff(ctx, oldMast, f, nil)
 }
 
-// DiffLinks invokes the given callback for every node that is different from the given tree. The iteration will stop if the callback returns keepGoing==false or an error.
+// DiffLinks invokes the given callback for every node that is different from the given tree. The
+// iteration will stop if the callback returns keepGoing==false or an error.
 func (m *Mast) DiffLinks(
 	ctx context.Context,
 	oldMast *Mast,
@@ -185,7 +188,7 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 					return
 				}
 				seLock.Unlock()
-				err := f()
+				err = f()
 				if err != nil {
 					seLock.Lock()
 					if firstStoreError == nil {
@@ -211,7 +214,8 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 	return str, nil
 }
 
-// Get gets the value of the entry with the given key and stores it at the given value pointer. Returns false if the tree doesn't contain the given key.
+// Get gets the value of the entry with the given key and stores it at the given value pointer.
+// Returns false if the tree doesn't contain the given key.
 func (m *Mast) Get(ctx context.Context, k, value interface{}) (bool, error) {
 	if m.root == nil {
 		return false, nil
@@ -279,7 +283,8 @@ func (m *Mast) Insert(ctx context.Context, key interface{}, value interface{}) e
 		panic("dunno why we didn't land in the right layer")
 	}
 	if i < len(node.Key) {
-		cmp, err := m.keyOrder(node.Key[i], key)
+		var cmp int
+		cmp, err = m.keyOrder(node.Key[i], key)
 		if err != nil {
 			return fmt.Errorf("keyCompare: %w", err)
 		}
@@ -314,7 +319,8 @@ func (m *Mast) Insert(ctx context.Context, key interface{}, value interface{}) e
 	var leftLink interface{}
 	var rightLink interface{}
 	if node.Link[i] != nil {
-		child, err := m.load(ctx, node.Link[i])
+		var child *mastNode
+		child, err = m.load(ctx, node.Link[i])
 		if err != nil {
 			return err
 		}
@@ -368,21 +374,6 @@ func (m *Mast) Iter(ctx context.Context, f func(interface{}, interface{}) error)
 		return err
 	}
 	return node.iter(ctx, f, m)
-}
-
-// keys returns the keys of the tree's entries as an array.
-func (m *Mast) keys(ctx context.Context) ([]interface{}, error) {
-	array := make([]interface{}, m.size)
-	i := 0
-	err := m.Iter(ctx, func(key interface{}, _ interface{}) error {
-		array[i] = key
-		i++
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return array, nil
 }
 
 // LoadMast loads a tree from a remote store. The root is loaded
@@ -472,21 +463,8 @@ func (m *Mast) Size() uint64 {
 	return m.size
 }
 
-// toSlice returns an array of the tree's entries.
-func (m *Mast) toSlice(ctx context.Context) ([]entry, error) {
-	array := make([]entry, m.size)
-	i := 0
-	err := m.Iter(ctx, func(key interface{}, value interface{}) error {
-		array[i] = entry{key, value}
-		i++
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return array, nil
-}
-
+// Clone() returns a new Mast that shares all the source's data
+// but can evolve independently (copy-on-write).
 func (m *Mast) Clone(ctx context.Context) (Mast, error) {
 	newNode, err := m.load(ctx, m.root)
 	if err != nil {

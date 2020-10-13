@@ -70,7 +70,10 @@ func (m *Mast) savePathForRoot(ctx context.Context, path []pathEntry) error {
 	return nil
 }
 
-// Splits the given node into two: left and right, so they could be the left+right children of a parent entry with the given key. The key is not expected to already be present in the source node, and will panic--but it would not migrated to the output, so that the caller can decide where to put it and its new children.
+// Splits the given node into two: left and right, so they could be the left+right children of a
+// parent entry with the given key. The key is not expected to already be present in the source
+// node, and will panic--but it would not migrated to the output, so that the caller can decide
+// where to put it and its new children.
 func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (interface{}, interface{}, error) {
 	var splitIndex int
 	for splitIndex = 0; splitIndex < len(node.Key); splitIndex++ {
@@ -136,16 +139,19 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (in
 
 	rightMinLink := right.Link[0]
 	if rightMinLink != nil {
-		rightMin, err := mast.load(ctx, rightMinLink)
+		var rightMin *mastNode
+		rightMin, err = mast.load(ctx, rightMinLink)
 		if err != nil {
 			return nil, nil, fmt.Errorf("load rightMin: %w", err)
 		}
-		tooSmallLink, rightMinLink, err := split(ctx, rightMin, key, mast)
+		var tooSmallLink interface{}
+		tooSmallLink, rightMinLink, err = split(ctx, rightMin, key, mast)
 		if err != nil {
 			return nil, nil, fmt.Errorf("split rightMin: %w", err)
 		}
 		if mast.debug {
-			fmt.Printf("  splitting rightMin, node with keys %v, is done: tooSmallLink=%v, rightMinLink=%v", rightMin.Key, tooSmallLink, rightMinLink)
+			fmt.Printf("  splitting rightMin, node with keys %v, is done: tooSmallLink=%v, rightMinLink=%v",
+				rightMin.Key, tooSmallLink, rightMinLink)
 		}
 		right.Link[0] = rightMinLink
 		if tooSmallLink != nil {
@@ -280,18 +286,20 @@ func (node *mastNode) extract(from, to int) *mastNode {
 }
 
 func (m *Mast) grow(ctx context.Context) error {
+	var node *mastNode
 	var err error
 	if m.debug {
 		fmt.Printf("GROWING\n")
 	}
-	node, err := m.load(ctx, m.root)
+	node, err = m.load(ctx, m.root)
 	if err != nil {
 		return fmt.Errorf("load root: %w", err)
 	}
 	newNode := emptyNode(int(m.branchFactor))
 	start := 0
 	for i, key := range node.Key {
-		layer, err := m.keyLayer(key, m.branchFactor)
+		var layer uint8
+		layer, err = m.keyLayer(key, m.branchFactor)
 		if err != nil {
 			return fmt.Errorf("layer: %w", err)
 		}
@@ -326,7 +334,8 @@ func (m *Mast) grow(ctx context.Context) error {
 			fmt.Printf("extracted right:\n")
 			newRightNode.dump(ctx, m)
 		}
-		newRightLink, err := m.store(newRightNode)
+		var newRightLink interface{}
+		newRightLink, err = m.store(newRightNode)
 		if err != nil {
 			return err
 		}
@@ -424,37 +433,6 @@ func (m *Mast) shrink(ctx context.Context) error {
 		m.growAfterSize /= uint64(m.branchFactor)
 	}
 	return nil
-}
-
-func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
-	if m.root == nil {
-		return false, nil
-	}
-	node, err := m.load(ctx, m.root)
-	if err != nil {
-		return false, err
-	}
-	layer, err := m.keyLayer(key, m.branchFactor)
-	if err != nil {
-		return false, fmt.Errorf("layer: %w", err)
-	}
-	options := findOptions{
-		targetLayer:   uint8min(layer, m.height),
-		currentHeight: m.height,
-	}
-	node, i, err := node.findNode(ctx, m, key, &options)
-	if err != nil {
-		return false, err
-	}
-	if i >= len(node.Key) ||
-		options.targetLayer != options.currentHeight {
-		return false, nil
-	}
-	cmp, err := m.keyOrder(node.Key[i], key)
-	if err != nil {
-		return false, fmt.Errorf("keyCompare: %w", err)
-	}
-	return cmp == 0, nil
 }
 
 func (node *mastNode) dump(ctx context.Context, mast *Mast) {
@@ -604,12 +582,17 @@ func (m *Mast) mergeNodes(ctx context.Context, leftLink, rightLink interface{}) 
 	combined.Link = append(combined.Link, left.Link[0:len(left.Link)-1]...)
 	combined.Link = append(combined.Link, nil)
 	combined.Link = append(combined.Link, right.Link[1:]...)
-	mergedLink, err := m.mergeNodes(ctx, left.Link[len(left.Link)-1], right.Link[0])
+	var mergedLink interface{}
+	mergedLink, err = m.mergeNodes(ctx, left.Link[len(left.Link)-1], right.Link[0])
 	if err != nil {
 		return nil, fmt.Errorf("merge: %w", err)
 	}
 	combined.Link[len(left.Link)-1] = mergedLink
-	combinedLink, err := m.store(combined)
+	var combinedLink interface{}
+	combinedLink, err = m.store(combined)
+	if err != nil {
+		return nil, fmt.Errorf("store: %w", err)
+	}
 	return combinedLink, nil
 }
 

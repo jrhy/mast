@@ -13,11 +13,7 @@ type Key interface {
 	Order(Key) int
 }
 
-var crcTable *crc64.Table
-
-func init() {
-	crcTable = crc64.MakeTable(crc64.ECMA)
-}
+var crcTable *crc64.Table = crc64.MakeTable(crc64.ECMA)
 
 func defaultOrder(i, i2 interface{}) (int, error) {
 	switch v := i.(type) {

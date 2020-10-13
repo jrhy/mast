@@ -1,6 +1,7 @@
 package mast
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -815,4 +816,65 @@ func TestNilValues(t *testing.T) {
 	contains, err = m.Get(ctx, "nonexistent", nil)
 	require.NoError(t, err)
 	require.False(t, contains)
+}
+
+// toSlice returns an array of the tree's entries.
+func (m *Mast) toSlice(ctx context.Context) ([]entry, error) {
+	array := make([]entry, m.size)
+	i := 0
+	err := m.Iter(ctx, func(key interface{}, value interface{}) error {
+		array[i] = entry{key, value}
+		i++
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return array, nil
+}
+
+// keys returns the keys of the tree's entries as an array.
+func (m *Mast) keys(ctx context.Context) ([]interface{}, error) {
+	array := make([]interface{}, m.size)
+	i := 0
+	err := m.Iter(ctx, func(key interface{}, _ interface{}) error {
+		array[i] = key
+		i++
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return array, nil
+}
+
+func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
+	if m.root == nil {
+		return false, nil
+	}
+	node, err := m.load(ctx, m.root)
+	if err != nil {
+		return false, err
+	}
+	layer, err := m.keyLayer(key, m.branchFactor)
+	if err != nil {
+		return false, fmt.Errorf("layer: %w", err)
+	}
+	options := findOptions{
+		targetLayer:   uint8min(layer, m.height),
+		currentHeight: m.height,
+	}
+	node, i, err := node.findNode(ctx, m, key, &options)
+	if err != nil {
+		return false, err
+	}
+	if i >= len(node.Key) ||
+		options.targetLayer != options.currentHeight {
+		return false, nil
+	}
+	cmp, err := m.keyOrder(node.Key[i], key)
+	if err != nil {
+		return false, fmt.Errorf("keyCompare: %w", err)
+	}
+	return cmp == 0, nil
 }

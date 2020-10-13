@@ -62,7 +62,7 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 		for i := 0; i < len(stringNode.Key); i++ {
 			aType := reflect.TypeOf(m.zeroKey)
 			aCopy := reflect.New(aType)
-			err := m.unmarshal(stringNode.Key[i], aCopy.Interface())
+			err = m.unmarshal(stringNode.Key[i], aCopy.Interface())
 			if err != nil {
 				return nil, fmt.Errorf("cannot unmarshal key[%d] in %s: %w", i, l, err)
 			}
@@ -119,7 +119,6 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 }
 
 func (m *Mast) store(node *mastNode) (interface{}, error) {
-	// validateNode(node, m)
 	if len(node.Link) == 1 && node.Link[0] == nil {
 		return nil, fmt.Errorf("bug! shouldn't be storing empty nodes")
 	}
@@ -149,13 +148,11 @@ func (node *mastNode) store(
 		if node.source != nil {
 			return *node.source, nil
 		}
-	} else {
-		if node.expected != nil {
-			if !reflect.DeepEqual(node.expected.Key, node.Key) &&
-				reflect.DeepEqual(node.expected.Value, node.Value) &&
-				reflect.DeepEqual(node.expected.Link, node.Link) {
-				return "", errors.New("dangit! node is not really dirty")
-			}
+	} else if node.expected != nil {
+		if !reflect.DeepEqual(node.expected.Key, node.Key) &&
+			reflect.DeepEqual(node.expected.Value, node.Value) &&
+			reflect.DeepEqual(node.expected.Link, node.Link) {
+			return "", errors.New("dangit! node is not really dirty")
 		}
 	}
 
@@ -198,7 +195,6 @@ func (node *mastNode) store(
 		if err != nil {
 			return fmt.Errorf("persist store: %w", err)
 		}
-		// fmt.Printf("STORE %s->%s\n", hash, encoded)
 		if cache != nil {
 			cache.Add(hash, node)
 		}
@@ -207,7 +203,8 @@ func (node *mastNode) store(
 	if node.dirty && node.source != nil && *node.source != hash {
 		fmt.Printf("expected node %s %v\n", *node.source, node.expected)
 		fmt.Printf("found    node %s %v\n", hash, node)
-		panic(fmt.Errorf("whoa, somebody modified %v==>%v after loading (keys were %v, became %v)", *node.source, hash, node.expected.Key, node.Key))
+		panic(fmt.Errorf("whoa, somebody modified %v==>%v after loading (keys were %v, became %v)",
+			*node.source, hash, node.expected.Key, node.Key))
 	}
 	node.dirty = false
 	node.expected = node.xcopy()

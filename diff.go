@@ -51,16 +51,14 @@ func (m *Mast) diff(
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
-				newStack.pushNode(newNode, m)
-			} else {
-				if entryCb != nil {
-					keepGoing, err := entryCb(true, false, n.yield.Key, n.yield.Value, nil)
-					if err != nil {
-						return fmt.Errorf("callback: %w", err)
-					}
-					if !keepGoing {
-						return nil
-					}
+				newStack.pushNode(newNode)
+			} else if entryCb != nil {
+				keepGoing, err := entryCb(true, false, n.yield.Key, n.yield.Value, nil)
+				if err != nil {
+					return fmt.Errorf("callback: %w", err)
+				}
+				if !keepGoing {
+					return nil
 				}
 			}
 		} else if o != nil && n == nil {
@@ -78,16 +76,14 @@ func (m *Mast) diff(
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
-				oldStack.pushNode(oldNode, oldMast)
-			} else {
-				if entryCb != nil {
-					keepGoing, err := entryCb(false, true, o.yield.Key, nil, o.yield.Value)
-					if err != nil {
-						return fmt.Errorf("callback error: %w", err)
-					}
-					if !keepGoing {
-						return nil
-					}
+				oldStack.pushNode(oldNode)
+			} else if entryCb != nil {
+				keepGoing, err := entryCb(false, true, o.yield.Key, nil, o.yield.Value)
+				if err != nil {
+					return fmt.Errorf("callback error: %w", err)
+				}
+				if !keepGoing {
+					return nil
 				}
 			}
 		} else {
@@ -150,14 +146,14 @@ func (m *Mast) diff(
 						fmt.Printf("  oldKey=%v.compare(newKey=%v): %d\n", oldKey, newKey, cmp)
 					}
 					if cmp < 0 {
-						oldStack.pushNode(oldNode, oldMast)
+						oldStack.pushNode(oldNode)
 						newStack.push(n)
 					} else if cmp > 0 {
 						oldStack.push(o)
-						newStack.pushNode(newNode, m)
+						newStack.pushNode(newNode)
 					} else {
-						oldStack.pushNode(oldNode, oldMast)
-						newStack.pushNode(newNode, m)
+						oldStack.pushNode(oldNode)
+						newStack.pushNode(newNode)
 					}
 				}
 			} else if o.considerLink != nil && n.considerLink == nil {
@@ -174,7 +170,7 @@ func (m *Mast) diff(
 				if err != nil {
 					return fmt.Errorf("load: %w", err)
 				}
-				oldStack.pushNode(oldNode, oldMast)
+				oldStack.pushNode(oldNode)
 				newStack.push(n)
 			} else if o.considerLink == nil && n.considerLink != nil {
 				if linkCb != nil && !m.alreadyNotified(ctx, "new", alreadyNotifiedNewLink, n.considerLink) {
@@ -191,7 +187,7 @@ func (m *Mast) diff(
 					return fmt.Errorf("load: %w", err)
 				}
 				oldStack.push(o)
-				newStack.pushNode(newNode, m)
+				newStack.pushNode(newNode)
 			} else {
 				// both yields
 				cmp, err := m.keyOrder(o.yield.Key, n.yield.Key)
@@ -270,6 +266,9 @@ func (m *Mast) alreadyNotified(ctx context.Context, name string, linkByHeight ma
 			linkByHeight[keyHeight+uint8(i)] = l
 		}
 	}
+	if res && m.debug {
+		fmt.Printf("already notified %s\n", name)
+	}
 	return res
 }
 
@@ -292,7 +291,7 @@ func (stack *iterItemStack) pop() *iterItem {
 	return nil
 }
 
-func (stack *iterItemStack) pushNode(node *mastNode, mast *Mast) {
+func (stack *iterItemStack) pushNode(node *mastNode) {
 	for n := range node.Key {
 		i := len(node.Key) - n
 		stack.pushLink(node.Link[i])
