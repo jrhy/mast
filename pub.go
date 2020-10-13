@@ -103,17 +103,10 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 	if node.Value[i] != value {
 		return fmt.Errorf("value not present for given key (found=%v, wanted=%v)", node.Value[i], value)
 	}
-	oldNode := node
-	mergedLink, err := m.mergeNodes(ctx, oldNode.Link[i], oldNode.Link[i+1])
+	node, err = deleteEntry(ctx, m, node, i)
 	if err != nil {
-		return fmt.Errorf("merge: %w", err)
+		return fmt.Errorf("deleteEntry: %w", err)
 	}
-	node = node.ToMut(ctx, m)
-	node.Dirty()
-	node.Key = append(node.Key[:i], node.Key[i+1:]...)
-	node.Value = append(node.Value[:i], node.Value[i+1:]...)
-	node.Link = append(node.Link[:i], node.Link[i+1:]...)
-	node.Link[i] = mergedLink
 	options.path[len(options.path)-1].node = node
 	err = m.savePathForRoot(ctx, options.path)
 	if err != nil {
@@ -127,6 +120,21 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 		}
 	}
 	return nil
+}
+
+func deleteEntry(ctx context.Context, m *Mast, node *mastNode, i int) (*mastNode, error) {
+	oldNode := node
+	mergedLink, err := m.mergeNodes(ctx, oldNode.Link[i], oldNode.Link[i+1])
+	if err != nil {
+		return nil, fmt.Errorf("merge: %w", err)
+	}
+	node = node.ToMut(ctx, m)
+	node.Dirty()
+	node.Key = append(node.Key[:i], node.Key[i+1:]...)
+	node.Value = append(node.Value[:i], node.Value[i+1:]...)
+	node.Link = append(node.Link[:i], node.Link[i+1:]...)
+	node.Link[i] = mergedLink
+	return node, nil
 }
 
 // DiffIter invokes the given callback for every entry that is different from the given tree. The
