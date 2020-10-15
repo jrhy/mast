@@ -124,9 +124,13 @@ func unmarshalNodeWithRegisteredTypes(m *Mast, nodeBytes []byte, l string, node 
 		return fmt.Errorf("unmarshal: %w", err)
 	}
 	if node.Link == nil || len(node.Link) == 0 {
-		node.Link = make([]interface{}, len(node.Key)+1, m.branchFactor)
+		if len(node.Key)+1 > int(m.branchFactor) {
+			node.Link = make([]interface{}, len(node.Key)+1)
+		} else {
+			node.Link = make([]interface{}, len(node.Key)+1, m.branchFactor)
+		}
 	} else if len(node.Link) != len(node.Key)+1 {
-		return fmt.Errorf("deserialized wrong number of links")
+		return fmt.Errorf("unmarshaled wrong number of links")
 	}
 	node.shared = true
 	node.expected = node.xcopy()
