@@ -204,11 +204,11 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 					return
 				}
 				seLock.Unlock()
-				err = f()
-				if err != nil {
+				cberr := f()
+				if cberr != nil {
 					seLock.Lock()
 					if firstStoreError == nil {
-						firstStoreError = err
+						firstStoreError = cberr
 					}
 					seLock.Unlock()
 				}
