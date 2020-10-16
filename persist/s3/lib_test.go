@@ -15,7 +15,7 @@ func TestHappyCase(t *testing.T) {
 	t.Cleanup(closer)
 
 	ctx := context.Background()
-	p := s3Persist.NewPersist(c, bucketName, "node/")
+	p := s3Persist.NewPersist(c, c.Endpoint, bucketName, "node/")
 	err := p.Store(ctx, "foofoo", []byte("here is some stuff"))
 	require.NoError(t, err)
 	b, err := p.Load(ctx, "foofoo")

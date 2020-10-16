@@ -3,11 +3,13 @@ package s3
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/jrhy/mast"
 )
 
 type S3Interface interface {
@@ -19,10 +21,14 @@ type S3Interface interface {
 // Persist implements the mast.Persist interface for storing and loading
 // nodes from files.
 type Persist struct {
-	s3         S3Interface
-	BucketName string
-	Prefix     string
+	s3            S3Interface
+	EndpointURL   string
+	BucketName    string
+	Prefix        string
+	nodeURLPrefix string
 }
+
+var _ mast.Persist = &Persist{}
 
 // Load loads the bytes persisted in the named object.
 func (p *Persist) Load(ctx context.Context, name string) ([]byte, error) {
@@ -58,6 +64,16 @@ func (p Persist) Store(ctx context.Context, name string, b []byte) error {
 
 // NewPersist returns a Persist that loads and stores nodes as
 // objects with the given S3 client and bucket name.
-func NewPersist(client S3Interface, bucketName, prefix string) Persist {
-	return Persist{client, bucketName, prefix}
+func NewPersist(client S3Interface, endpointURL, bucketName, prefix string) Persist {
+	return Persist{
+		s3:            client,
+		EndpointURL:   endpointURL,
+		BucketName:    bucketName,
+		Prefix:        prefix,
+		nodeURLPrefix: fmt.Sprintf("%s/%s/%s", endpointURL, bucketName, prefix),
+	}
+}
+
+func (p Persist) NodeURLPrefix() string {
+	return p.nodeURLPrefix
 }

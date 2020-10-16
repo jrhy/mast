@@ -34,8 +34,9 @@ func (m *Mast) load(ctx context.Context, link interface{}) (*mastNode, error) {
 }
 
 func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
+	cacheKey := fmt.Sprintf("%s/%s", m.persist.NodeURLPrefix(), l)
 	if m.nodeCache != nil {
-		if node, ok := m.nodeCache.Get(l); ok {
+		if node, ok := m.nodeCache.Get(cacheKey); ok {
 			return node.(*mastNode), nil
 		}
 	}
@@ -54,7 +55,7 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 	}
 	validateNode(ctx, &node, m)
 	if m.nodeCache != nil {
-		m.nodeCache.Add(l, &node)
+		m.nodeCache.Add(cacheKey, &node)
 	}
 	return &node, nil
 }
@@ -205,8 +206,9 @@ func (node *mastNode) store(
 	}
 	hashBytes := blake2b.Sum256(encoded)
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
+	cacheKey := fmt.Sprintf("%s/%s", persist.NodeURLPrefix(), hash)
 	if cache != nil {
-		if cache.Contains(hash) {
+		if cache.Contains(cacheKey) {
 			return hash, nil
 		}
 	}
@@ -216,7 +218,7 @@ func (node *mastNode) store(
 			return fmt.Errorf("persist store: %w", err)
 		}
 		if cache != nil {
-			cache.Add(hash, node)
+			cache.Add(cacheKey, node)
 		}
 		return nil
 	}

@@ -27,6 +27,10 @@ type Persist interface {
 	Store(context.Context, string, []byte) error
 	// Load retrieves the previously-stored bytes by the given name.
 	Load(context.Context, string) ([]byte, error)
+	// NodeURLPrefix returns some string that identifies the
+	// container this Persist uses, to enable NodeCaches to
+	// distinguish identical nodes on different servers.
+	NodeURLPrefix() string
 }
 
 // RemoteConfig controls how nodes are persisted and loaded.

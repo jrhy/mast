@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/aws/aws-sdk-go v1.35.7
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/jrhy/mast v0.5.1
 	github.com/jrhy/mast/persist/s3test v0.0.0-20200928204307-de1719cff128
 	github.com/shabbyrobe/gocovmerge v0.0.0-20190829150210-3e036491d500 // indirect
 	github.com/stretchr/testify v1.6.1

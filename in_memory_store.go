@@ -36,3 +36,7 @@ func (ims *inMemoryStore) Load(ctx context.Context, key string) ([]byte, error) 
 	}
 	return value, nil
 }
+
+func (ims *inMemoryStore) NodeURLPrefix() string {
+	return fmt.Sprintf("%p", ims)
+}
