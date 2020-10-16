@@ -29,8 +29,14 @@ func Client() (*s3.S3, string, func()) {
 			Endpoint:         aws.String(getEnv("JRHY_MAST_TEST_S3_ENDPOINT")),
 			S3ForcePathStyle: aws.Bool(true),
 		}
-		config.Region = aws.String(getEnvOrDefault("AWS_REGION", "foo"))
-		if *config.Region != "foo" {
+		// if AWS_REGION is set, we're using a real AWS S3
+		// endpoint, so just let the SDK figure out which
+		// endpoint to use.  Otherwise, we're using min.io
+		// or Wasabi or something else with an explicit
+		// endpoint, and the AWS_REGION just needs to be
+		// nonempty to satisfy the SDK.
+		config.Region = aws.String(getEnvOrDefault("AWS_REGION", "not-using-AWS"))
+		if *config.Region != "not-using-AWS" {
 			config.Endpoint = nil
 		}
 
