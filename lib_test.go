@@ -25,8 +25,8 @@ func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),
 		persist:         NewInMemoryStore(),
-		keyOrder:        defaultOrder,
-		keyLayer:        defaultLayer,
+		keyOrder:        defaultOrder(defaultMarshal),
+		keyLayer:        defaultLayer(defaultMarshal),
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
 	}
