@@ -416,8 +416,6 @@ func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error
 		unmarshal:                      config.Unmarshal,
 		marshal:                        config.Marshal,
 		unmarshalerUsesRegisteredTypes: config.UnmarshalerUsesRegisteredTypes,
-		keyOrder:                       defaultOrder,
-		keyLayer:                       defaultLayer,
 		branchFactor:                   r.BranchFactor,
 		size:                           r.Size,
 		height:                         r.Height,
@@ -432,6 +430,8 @@ func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error
 	if config.Marshal == nil {
 		m.marshal = defaultMarshal
 	}
+	m.keyOrder = defaultOrder(m.marshal)
+	m.keyLayer = defaultLayer(m.marshal)
 	err := m.checkRoot(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("checkRoot: %w", err)
@@ -457,8 +457,8 @@ func NewInMemory() Mast {
 		branchFactor:    DefaultBranchFactor,
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),
-		keyOrder:        defaultOrder,
-		keyLayer:        defaultLayer,
+		keyOrder:        defaultOrder(defaultMarshal),
+		keyLayer:        defaultLayer(defaultMarshal),
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
 	}
