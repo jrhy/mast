@@ -177,6 +177,9 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 	if m.persist == nil {
 		return "", fmt.Errorf("no persistence mechanism set; set RemoteConfig.StoreImmutablePartsWith")
 	}
+	if m.root == nil {
+		return "", nil
+	}
 	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return "", fmt.Errorf("load root: %w", err)
