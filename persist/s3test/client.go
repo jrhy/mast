@@ -87,6 +87,11 @@ func Client() (*s3.S3, string, func()) {
 	closer = func() {
 		oldCloser()
 		emptyBucket(client, bucketName)
+		if bucketName == "" {
+			client.DeleteBucket(&s3.DeleteBucketInput{
+				Bucket: &bucketName,
+			})
+		}
 	}
 
 	return client, bucketName, closer
