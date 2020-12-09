@@ -6,10 +6,11 @@ immutable, versioned, diffable map implementation of the Merkle Search Tree
 
 `import "github.com/jrhy/mast"`
 
-# Use cases
-* Efficient storage of multiple versions of materialized views
-* Diffing of versions integrates CDC/streaming
-* Efficient copy-on-write alternative to Go builtin map
+# Primary use cases
+* Strongly-consistent versioned KV store layer with flexible backends (S3, files today, designed for Dynamo, Firebase, SQL as well)
+* Provides consistent access to multiple versions of collections or materialized views, with incremental storage cost logarithmically proportional to delta size
+* Flexible change reporting through efficient diffing of snapshots
+
 
 # Documentation
 
