@@ -3,7 +3,7 @@ module github.com/jrhy/mast
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.36.7
+	github.com/aws/aws-sdk-go v1.36.13
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/johannesboyne/gofakes3 v0.0.0-20200716060623-6b2b4cb092cc
