@@ -312,7 +312,7 @@ func (m *Mast) Insert(ctx context.Context, key, value interface{}) error {
 			return fmt.Errorf("keyCompare: %w", err)
 		}
 		if cmp == 0 {
-			if node.Value[i] == value {
+			if reflect.DeepEqual(node.Value[i], value) {
 				return nil
 			}
 			node = node.ToMut(ctx, m)
