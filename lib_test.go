@@ -878,3 +878,20 @@ func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
 	}
 	return cmp == 0, nil
 }
+
+type TEAV struct {
+	Foo bool
+	Goo []uint8
+}
+
+func TestEmbeddedArrayValue(t *testing.T) {
+	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
+		KeysLike:                "hi",
+		ValuesLike:              nil,
+		StoreImmutablePartsWith: NewInMemoryStore(),
+	})
+	require.NoError(t, err)
+	require.NoError(t, m.Insert(ctx, "hey", TEAV{true,[]uint8{1,2}}))
+	require.NoError(t, m.Insert(ctx, "hey", TEAV{true,[]uint8{1,2,3}}))
+}
+
