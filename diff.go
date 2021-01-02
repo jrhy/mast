@@ -3,6 +3,7 @@ package mast
 import (
 	"context"
 	"fmt"
+	"reflect"
 )
 
 type iterItem struct {
@@ -206,7 +207,7 @@ func (m *Mast) diff(
 						}
 					}
 				} else if cmp == 0 {
-					if o.yield.Value != n.yield.Value {
+					if !reflect.DeepEqual(o.yield.Value, n.yield.Value) {
 						if entryCb != nil {
 							keepGoing, err := entryCb(false, false, n.yield.Key, n.yield.Value, o.yield.Value)
 							if err != nil {
