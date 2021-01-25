@@ -15,6 +15,8 @@ github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGw
 github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfCI6z80xFu9LTZmf1ZRjMHUOPmWr69U=
 github.com/johannesboyne/gofakes3 v0.0.0-20210116212202-e8b5dbd08102 h1:DNVY7zYniICjJaKlyfqwHddUng95//FynDlx3g85PxY=
 github.com/johannesboyne/gofakes3 v0.0.0-20210116212202-e8b5dbd08102/go.mod h1:fNiSoOiEI5KlkWXn26OwKnNe58ilTIkpBlgOrt7Olu8=
+github.com/johannesboyne/gofakes3 v0.0.0-20210124080349-901cf567bf01 h1:OgeS46YxpBWMY1AB5asiZyTP2kRlH/Wlm94YwuusRak=
+github.com/johannesboyne/gofakes3 v0.0.0-20210124080349-901cf567bf01/go.mod h1:fNiSoOiEI5KlkWXn26OwKnNe58ilTIkpBlgOrt7Olu8=
 github.com/leanovate/gopter v0.2.9 h1:fQjYxZaynp97ozCzfOyOuAGOU4aU/z37zf/tOujFk7c=
 github.com/leanovate/gopter v0.2.9/go.mod h1:U2L/78B+KVFIx2VmW6onHJQzXtFb+p5y3y2Sh+Jxxv8=
 github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 h1:lYpkrQH5ajf0OXOcUbGjvZxxijuBwbbmlSxLiuofa+g=
