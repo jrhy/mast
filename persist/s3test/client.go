@@ -16,6 +16,10 @@ import (
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 )
 
+func CanParallelize() bool {
+	return os.Getenv("JRHY_MAST_TEST_S3_BUCKET") == ""
+}
+
 func Client() (*s3.S3, string, func()) {
 	var client *s3.S3
 	closer := func() {}
