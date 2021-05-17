@@ -1,7 +1,9 @@
 package mast
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -891,7 +893,52 @@ func TestEmbeddedArrayValue(t *testing.T) {
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, m.Insert(ctx, "hey", TEAV{true,[]uint8{1,2}}))
-	require.NoError(t, m.Insert(ctx, "hey", TEAV{true,[]uint8{1,2,3}}))
+	require.NoError(t, m.Insert(ctx, "hey", TEAV{true, []uint8{1, 2}}))
+	require.NoError(t, m.Insert(ctx, "hey", TEAV{true, []uint8{1, 2, 3}}))
 }
 
+func TestCustomMarshal(t *testing.T) {
+
+	// Override the (un)marshalers to replace the default JSON one:
+	marshalGob := func(thing interface{}) ([]byte, error) {
+		var network bytes.Buffer
+		enc := gob.NewEncoder(&network)
+		err := enc.Encode(thing)
+		if err != nil {
+			return nil, fmt.Errorf("encode: %w", err)
+		}
+		return network.Bytes(), nil
+	}
+	unmarshalGob := func(input []byte, thing interface{}) error {
+		dec := gob.NewDecoder(bytes.NewBuffer(input))
+		err := dec.Decode(thing)
+		if err != nil {
+			return fmt.Errorf("decode: %w", err)
+		}
+		return nil
+	}
+
+	// Using built-in types would be fine, without any extra work, but to
+	// store entries with types gob doesn't know about, register them first:
+	type value struct {
+		FooEnabled bool
+		BarEnabled bool
+	}
+	gob.Register(value{})
+
+	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
+		StoreImmutablePartsWith: NewInMemoryStore(),
+		Marshal:                 marshalGob,
+		Unmarshal:               unmarshalGob,
+		// Registration means we can optimize & remove a layer of JSON encapsulation:
+		UnmarshalerUsesRegisteredTypes: true,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, m.Insert(ctx, "path/1/2/3",
+		value{FooEnabled: true, BarEnabled: false}))
+	var v value
+	_, err = m.Get(ctx, "path/1/2/3", &v)
+	require.NoError(t, err)
+	require.Equal(t, value{true, false}, v)
+}
