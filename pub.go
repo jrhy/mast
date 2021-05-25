@@ -2,9 +2,15 @@ package mast
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
+)
+
+var (
+	// ErrIterDone is the error returned by Iter and SeekIter to stop the iteration
+	ErrIterDone = errors.New("iter done")
 )
 
 // CreateRemoteOptions sets initial parameters for the tree, that would be painful to change after the tree has data.
@@ -396,7 +402,49 @@ func (m *Mast) Iter(ctx context.Context, f func(interface{}, interface{}) error)
 	if err != nil {
 		return err
 	}
-	return node.iter(ctx, f, m)
+	err = node.iter(ctx, f, m)
+	if err == nil || err == ErrIterDone {
+		return nil
+	}
+	return err
+}
+
+// Seekiter is similar to Iter, but the difference is to find the first position greater than or equal to the key and start the iteration
+func (m *Mast) SeekIter(ctx context.Context, k interface{}, f func(interface{}, interface{}) error) error {
+	if m.root == nil {
+		return nil
+	}
+	node, err := m.load(ctx, m.root)
+	if err != nil {
+		return err
+	}
+	keyLayer, err := m.keyLayer(k, m.branchFactor)
+	if err != nil {
+		return fmt.Errorf("layer: %w", err)
+	}
+	options := findOptions{
+		targetLayer:   uint8min(keyLayer, m.height),
+		currentHeight: m.height,
+	}
+	node, i, err := node.findNode(ctx, m, k, &options)
+	if err != nil {
+		return err
+	}
+	if i >= len(node.Key) ||
+		options.targetLayer != options.currentHeight {
+		return nil
+	}
+	for i := len(options.path) - 1; i >= 0; i-- {
+		entry := options.path[i]
+		err = entry.node.seekIter(ctx, entry.linkIndex, f, m)
+		if err == ErrIterDone {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // LoadMast loads a tree from a remote store. The root is loaded

@@ -518,6 +518,37 @@ func (node *mastNode) iter(ctx context.Context, f func(interface{}, interface{})
 	return nil
 }
 
+// seekIter first seeks to idx key, and then starts the iteration
+func (node *mastNode) seekIter(ctx context.Context, idx int, f func(interface{}, interface{}) error, m *Mast) error {
+	if idx >= len(node.Key) {
+		return nil
+	}
+	err := f(node.Key[idx], node.Value[idx])
+	if err != nil {
+		return err
+	}
+	for i := idx + 1; i < len(node.Link); i++ {
+		link := node.Link[i]
+		if link != nil {
+			child, err := m.load(ctx, link)
+			if err != nil {
+				return err
+			}
+			err = child.iter(ctx, f, m)
+			if err != nil {
+				return err
+			}
+		}
+		if i < len(node.Key) {
+			err := f(node.Key[i], node.Value[i])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func validateNode(ctx context.Context, node *mastNode, mast *Mast) {
 	if node.expected != nil {
 		if !reflect.DeepEqual(node.expected.Key, node.Key) {
