@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/arbitrary"
@@ -941,4 +942,68 @@ func TestCustomMarshal(t *testing.T) {
 	_, err = m.Get(ctx, "path/1/2/3", &v)
 	require.NoError(t, err)
 	require.Equal(t, value{true, false}, v)
+}
+
+func TestIterDone(t *testing.T) {
+	m := NewInMemory()
+	for i := 0; i < 10; i++ {
+		m.Insert(context.TODO(), i, i)
+	}
+	begin, end := 3, 6
+	var result []int
+	err := m.SeekIter(context.TODO(), begin, func(k, v interface{}) error {
+		if k.(int) >= end {
+			return ErrIterDone
+		}
+		result = append(result, k.(int))
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, []int{3, 4, 5}, result)
+
+	result = result[0:0]
+	err = m.Iter(context.TODO(), func(k, v interface{}) error {
+		if k.(int) >= 4 {
+			return ErrIterDone
+		}
+		result = append(result, k.(int))
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, []int{0, 1, 2, 3}, result)
+}
+
+func TestSeekNotFound(t *testing.T) {
+	m := NewInMemory()
+	for i := 0; i < 10; i++ {
+		m.Insert(context.TODO(), i, i)
+	}
+	var result []int
+	m.SeekIter(context.TODO(), 10, func(k, v interface{}) error {
+		result = append(result, k.(int))
+		return nil
+	})
+	require.Equal(t, 0, len(result))
+}
+
+func TestSeekIter(t *testing.T) {
+	rnd := rand.New(rand.NewSource(time.Now().Unix()))
+	var begin int
+	var numbers []int
+	for i := 0; i < 10000; i++ {
+		numbers = append(numbers, begin)
+		begin += rnd.Intn(10) + 1
+	}
+	m := NewInMemory()
+	for _, n := range numbers {
+		m.Insert(context.TODO(), n, n)
+	}
+
+	idx := rnd.Intn(len(numbers))
+	var result []int
+	m.SeekIter(context.TODO(), numbers[idx], func(k, v interface{}) error {
+		result = append(result, k.(int))
+		return nil
+	})
+	require.Equal(t, numbers[idx:], result)
 }
