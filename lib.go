@@ -28,6 +28,7 @@ type Mast struct {
 	persist                        Persist
 	debug                          bool
 	nodeCache                      NodeCache
+	nodeFormat                     nodeFormat
 }
 
 type mastNode struct {

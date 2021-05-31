@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -19,7 +20,7 @@ import (
 
 var defaultGopterParameters = gopter.DefaultTestParameters()
 
-func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
+func newTestTree(zeroKey, zeroValue interface{}) Mast {
 	return Mast{
 		root:            emptyNodePointer(DefaultBranchFactor),
 		zeroKey:         zeroKey,
@@ -32,10 +33,12 @@ func newTestTree(zeroKey interface{}, zeroValue interface{}) Mast {
 		keyLayer:        defaultLayer(defaultMarshal),
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
+		nodeFormat:      V115Binary,
 	}
 }
 
 func TestNew(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	require.Equal(t, uint64(0), m.Size())
 	root, err := m.load(ctx, m.root)
@@ -44,6 +47,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestSplit(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	node := mastNode{
 		Key:   []interface{}{10, 20, 30},
@@ -61,6 +65,7 @@ func TestSplit(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	err := m.Insert(ctx, 50, 50)
 	require.NoError(t, err)
@@ -103,6 +108,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestInsertGrow(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	for i := 1; i < 17; i++ {
 		var err error
@@ -136,6 +142,7 @@ func TestInsertGrow(t *testing.T) {
 }
 
 func TestInsertSplit(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	for i := 1; i < 17; i++ {
 		var err error
@@ -157,6 +164,7 @@ func TestInsertSplit(t *testing.T) {
 }
 
 func TestToSlice(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	m.Insert(ctx, 3, 0)
 	m.Insert(ctx, 1, 0)
@@ -172,6 +180,7 @@ func TestToSlice(t *testing.T) {
 }
 
 func TestKeys(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	m.Insert(ctx, 3, 0)
 	m.Insert(ctx, 1, 0)
@@ -259,6 +268,7 @@ func checkRecallPow4(t *testing.T, to []TestOperation) bool {
 }
 
 func TestRecall(t *testing.T) {
+	t.Parallel()
 	properties := gopter.NewProperties(defaultGopterParameters)
 	arbitraries := arbitrary.DefaultArbitraries()
 	arbitraries.RegisterGen(gen.UIntRange(0, 10_000))
@@ -272,6 +282,7 @@ func TestRecall(t *testing.T) {
 }
 
 func TestCongruence(t *testing.T) {
+	t.Parallel()
 	properties := gopter.NewProperties(defaultGopterParameters)
 	arbitraries := arbitrary.DefaultArbitraries()
 	baseTree := newTestTree(uint(0), "")
@@ -306,6 +317,7 @@ type TestOperation struct {
 }
 
 func TestContentHash(t *testing.T) {
+	t.Parallel()
 	m := newTestTree(0, "")
 	err := m.Insert(ctx, 1, "one")
 	require.NoError(t, err)
@@ -326,6 +338,7 @@ func TestContentHash(t *testing.T) {
 }
 
 func TestContentHash_DiffersOnUpsert(t *testing.T) {
+	t.Parallel()
 	m := newTestTree(0, "")
 	err := m.Insert(ctx, 1, "one")
 	require.NoError(t, err)
@@ -346,6 +359,7 @@ func TestContentHash_DiffersOnUpsert(t *testing.T) {
 }
 
 func TestEmptyLeavesRecall(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	recallCase := make([]TestOperation, testLen)
 	for i := 0; i < testLen; i++ {
@@ -356,6 +370,7 @@ func TestEmptyLeavesRecall(t *testing.T) {
 }
 
 func TestEmptyLeavesCongruence(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	congruenceCase := make([]interface{}, testLen)
 	for i := 0; i < testLen; i++ {
@@ -366,6 +381,7 @@ func TestEmptyLeavesCongruence(t *testing.T) {
 }
 
 func TestEmptyTwoBottomLayersRecall(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	recallCase := make([]TestOperation, testLen)
 	recallCase = append(recallCase, TestOperation{32, 0}, TestOperation{33, 0}, TestOperation{1, 0}, TestOperation{256, 129})
@@ -377,6 +393,7 @@ func TestEmptyTwoBottomLayersRecall(t *testing.T) {
 }
 
 func TestEmptyTwoBottomLayersCongruence(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	congruenceCase := make([]interface{}, testLen)
 	for i := 0; i < testLen; i++ {
@@ -387,6 +404,7 @@ func TestEmptyTwoBottomLayersCongruence(t *testing.T) {
 }
 
 func TestEmptyMiddleLayerRecall(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	recallCase := make([]TestOperation, testLen)
 	for i := 0; i < testLen; i++ {
@@ -400,6 +418,7 @@ func TestEmptyMiddleLayerRecall(t *testing.T) {
 }
 
 func TestEmptyMiddleLayerCongruence(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	congruenceCase := make([]interface{}, testLen)
 	for i := 0; i < testLen; i++ {
@@ -413,6 +432,7 @@ func TestEmptyMiddleLayerCongruence(t *testing.T) {
 }
 
 func TestEmptyMiddle2LayersRecall(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	recallCase := make([]TestOperation, testLen)
 	for i := 0; i < testLen; i++ {
@@ -426,6 +446,7 @@ func TestEmptyMiddle2LayersRecall(t *testing.T) {
 }
 
 func TestEmptyMiddle2LayersCongruence(t *testing.T) {
+	t.Parallel()
 	const testLen = 300
 	congruenceCase := make([]interface{}, testLen)
 	for i := 0; i < testLen; i++ {
@@ -439,6 +460,7 @@ func TestEmptyMiddle2LayersCongruence(t *testing.T) {
 }
 
 func TestInterestingZeroCase(t *testing.T) {
+	t.Parallel()
 	const testLen = 257
 	recallCase := make([]TestOperation, testLen)
 	for i := 0; i < testLen; i++ {
@@ -450,6 +472,7 @@ func TestInterestingZeroCase(t *testing.T) {
 }
 
 func TestDiffTrivial(t *testing.T) {
+	t.Parallel()
 	m := newTestTree(0, 0)
 	m.Insert(ctx, 1, 1)
 	m2 := newTestTree(0, 0)
@@ -478,6 +501,7 @@ func TestDiffTrivial(t *testing.T) {
 }
 
 func TestDiffToMidpoint(t *testing.T) {
+	t.Parallel()
 	properties := gopter.NewProperties(defaultGopterParameters)
 	arbitraries := arbitrary.DefaultArbitraries()
 
@@ -491,6 +515,7 @@ func TestDiffToMidpoint(t *testing.T) {
 }
 
 func TestDiffSkipsUnchangedTree(t *testing.T) {
+	t.Parallel()
 	skipCase := make([]TestOperation, 256)
 	for i := range skipCase {
 		skipCase[i] = TestOperation{uint(i), 0}
@@ -549,6 +574,7 @@ func checkDiff(t *testing.T, oldOps []TestOperation, newOps []TestOperation) boo
 }
 
 func TestTreeAssignmentsWorkForVersioning(t *testing.T) {
+	t.Parallel()
 	m1 := newTestTree(0, 0)
 	m1.Insert(ctx, 1, 1)
 	m1.Insert(ctx, 2, 2)
@@ -576,6 +602,7 @@ func (me arbitraryLayerInt) Layer(branchFactor uint) uint8 {
 }
 
 func TestSplitWithoutSlide(t *testing.T) {
+	t.Parallel()
 	var keys []interface{}
 	for _, key := range []arbitraryLayerInt{
 		{20, 1},
@@ -593,6 +620,7 @@ func TestSplitWithoutSlide(t *testing.T) {
 }
 
 func TestSplitWithSlide(t *testing.T) {
+	t.Parallel()
 	// TODO how about checking congruence for all permutations of levels?
 	var keys []interface{}
 	for _, key := range []arbitraryLayerInt{
@@ -705,6 +733,7 @@ func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
 }
 
 func TestCongruenceExample(t *testing.T) {
+	t.Parallel()
 	m := newTestTree(uint(0), "")
 	m.branchFactor = 4
 	m.growAfterSize = 4
@@ -716,6 +745,7 @@ func TestCongruenceExample(t *testing.T) {
 }
 
 func TestRemoteExample(t *testing.T) {
+	t.Parallel()
 	inMemoryStore := NewInMemoryStore()
 	remoteConfig := RemoteConfig{
 		KeysLike:                1234,
@@ -738,6 +768,7 @@ func TestRemoteExample(t *testing.T) {
 }
 
 func TestStructValues(t *testing.T) {
+	t.Parallel()
 	type foo struct {
 		Asdf string
 		Q    bool
@@ -763,6 +794,7 @@ func TestStructValues(t *testing.T) {
 }
 
 func TestStringKeys(t *testing.T) {
+	t.Parallel()
 	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              5,
@@ -793,6 +825,7 @@ func TestStringKeys(t *testing.T) {
 }
 
 func TestNilValues(t *testing.T) {
+	t.Parallel()
 	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              nil,
@@ -888,6 +921,7 @@ type TEAV struct {
 }
 
 func TestEmbeddedArrayValue(t *testing.T) {
+	t.Parallel()
 	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              nil,
@@ -899,6 +933,7 @@ func TestEmbeddedArrayValue(t *testing.T) {
 }
 
 func TestCustomMarshal(t *testing.T) {
+	t.Parallel()
 
 	// Override the (un)marshalers to replace the default JSON one:
 	marshalGob := func(thing interface{}) ([]byte, error) {
@@ -945,6 +980,7 @@ func TestCustomMarshal(t *testing.T) {
 }
 
 func TestIterDone(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	for i := 0; i < 10; i++ {
 		m.Insert(context.TODO(), i, i)
@@ -974,6 +1010,7 @@ func TestIterDone(t *testing.T) {
 }
 
 func TestSeekNotFound(t *testing.T) {
+	t.Parallel()
 	m := NewInMemory()
 	for i := 0; i < 10; i++ {
 		m.Insert(context.TODO(), i, i)
@@ -987,6 +1024,7 @@ func TestSeekNotFound(t *testing.T) {
 }
 
 func TestSeekIter(t *testing.T) {
+	t.Parallel()
 	rnd := rand.New(rand.NewSource(time.Now().Unix()))
 	var begin int
 	var numbers []int
@@ -1006,4 +1044,46 @@ func TestSeekIter(t *testing.T) {
 		return nil
 	})
 	require.Equal(t, numbers[idx:], result)
+}
+
+func TestNodeFormatV1MarshalerPreservesCompatibilityWithOldCode(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	inMemoryStore := NewInMemoryStore()
+	remoteConfig := RemoteConfig{
+		KeysLike:                5,
+		ValuesLike:              "value",
+		StoreImmutablePartsWith: inMemoryStore,
+	}
+	root := NewRoot(nil)
+	root.NodeFormat = ""
+	m, err := root.LoadMast(ctx, &remoteConfig)
+	require.NoError(t, err)
+	require.Equal(t, V1Marshaler, m.nodeFormat)
+	err = m.Insert(ctx, 5, "yay")
+	require.NoError(t, err)
+
+	// make sure that new roots continue to use the same NodeFormat
+	root, err = m.MakeRoot(ctx)
+	require.Equal(t, string(V1Marshaler), root.NodeFormat)
+	require.NoError(t, err)
+
+	// check that the marshaled node is actually JSON
+	nodeBytes, err := inMemoryStore.Load(ctx, *root.Link)
+	require.NotEqual(t, 0, len(nodeBytes))
+	require.NoError(t, err)
+	var node mastNode
+	err = json.Unmarshal(nodeBytes, &node)
+	require.NoError(t, err)
+
+	// simulate reading by code without knowledge of the NodeFormat field or V115Binary
+	root.NodeFormat = ""
+	m, err = root.LoadMast(ctx, &remoteConfig)
+	require.NoError(t, err)
+	require.Equal(t, V1Marshaler, m.nodeFormat)
+	var value string
+	contains, err := m.Get(ctx, 5, &value)
+	require.True(t, contains)
+	require.Equal(t, "yay", value)
 }

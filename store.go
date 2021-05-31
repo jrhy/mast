@@ -44,8 +44,29 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 	if err != nil {
 		return nil, fmt.Errorf("persist load %s: %w", l, err)
 	}
+
+	versionedUnmarshaler := func(m *Mast, nodeBytes []byte, l string, node *mastNode) error {
+		switch m.nodeFormat {
+		case V1Marshaler:
+			return unmarshalNode(m, nodeBytes, l, node)
+		case V115Binary:
+			err := unmarshalMastNode(m, nodeBytes, node)
+			if err != nil {
+				return err
+			}
+			if len(node.Link) == 0 {
+				node.Link = make([]interface{}, len(node.Key)+1)
+			}
+			node.shared = true
+			node.expected = node.xcopy()
+			node.source = &l
+			return nil
+		}
+		return fmt.Errorf("unknown node format '%v'", m.nodeFormat)
+	}
+
 	var node mastNode
-	err = unmarshalNode(m, nodeBytes, l, &node)
+	err = versionedUnmarshaler(m, nodeBytes, l, &node)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +82,66 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 }
 
 func unmarshalNode(m *Mast, nodeBytes []byte, l string, node *mastNode) error {
-	err := unmarshalMastNode(m, nodeBytes, node)
+	if m.unmarshalerUsesRegisteredTypes {
+		return unmarshalNodeWithRegisteredTypes(m, nodeBytes, l, node)
+	}
+	return unmarshalStringNode(m, nodeBytes, l, node)
+}
+
+func unmarshalStringNode(m *Mast, nodeBytes []byte, l string, node *mastNode) error {
+	var stringNode stringNodeT
+	err := m.unmarshal(nodeBytes, &stringNode)
+	if err != nil {
+		return fmt.Errorf("unmarshaling %s: %w", l, err)
+	}
+	if len(stringNode.Key) != len(stringNode.Value) {
+		return fmt.Errorf("cannot unmarshal %s: mismatched keys and values", l)
+	}
+	*node = mastNode{
+		make([]interface{}, len(stringNode.Key)),
+		make([]interface{}, len(stringNode.Value)),
+		make([]interface{}, len(stringNode.Key)+1),
+		false, true, nil, &l,
+	}
+	for i := 0; i < len(stringNode.Key); i++ {
+		aType := reflect.TypeOf(m.zeroKey)
+		aCopy := reflect.New(aType)
+		err = m.unmarshal(stringNode.Key[i], aCopy.Interface())
+		if err != nil {
+			return fmt.Errorf("cannot unmarshal key[%d] in %s: %w", i, l, err)
+		}
+		newKey := aCopy.Elem().Interface()
+
+		var newValue interface{}
+		if m.zeroValue != nil {
+			aType = reflect.TypeOf(m.zeroValue)
+			aCopy = reflect.New(aType)
+			err = m.unmarshal(stringNode.Value[i], aCopy.Interface())
+			if err != nil {
+				return fmt.Errorf("cannot unmarshal value[%d] in %s: %w", i, l, err)
+			}
+			newValue = aCopy.Elem().Interface()
+		} else {
+			newValue = nil
+		}
+		node.Key[i] = newKey
+		node.Value[i] = newValue
+	}
+	if stringNode.Link != nil {
+		for i, l := range stringNode.Link {
+			if l == "" {
+				node.Link[i] = nil
+			} else {
+				node.Link[i] = l
+			}
+		}
+	}
+	node.expected = node.xcopy()
+	return nil
+}
+
+func unmarshalNodeWithRegisteredTypes(m *Mast, nodeBytes []byte, l string, node *mastNode) error {
+	err := m.unmarshal(nodeBytes, &node)
 	if err != nil {
 		return fmt.Errorf("unmarshal: %w", err)
 	}
@@ -141,7 +221,7 @@ func (node *mastNode) store(
 	if linkCount == 0 {
 		trimmed.Link = nil
 	}
-	encoded, err := marshalMastNode(&trimmed, marshal)
+	encoded, err := marshal(trimmed)
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
 	}

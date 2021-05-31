@@ -17,7 +17,15 @@ var (
 type CreateRemoteOptions struct {
 	// BranchFactor, or number of entries per node.  0 means use DefaultBranchFactor.
 	BranchFactor uint
+	// NodeFormat, defaults to more-compact "v1.1.5binary" for new trees, can be set to "v1marshaler" to make nodes compatible with pre-v1.1.5 code.
+	NodeFormat nodeFormat
 }
+type nodeFormat string
+
+var (
+	V1Marshaler = nodeFormat("v1marshaler")
+	V115Binary  = nodeFormat("v1.1.5binary")
+)
 
 // entry represents a key and value in the tree.
 type entry struct {
@@ -71,6 +79,7 @@ type Root struct {
 	Size         uint64
 	Height       uint8
 	BranchFactor uint
+	NodeFormat   string `json:"NodeFormat,omitempty"`
 }
 
 // Delete deletes the entry with given key and value from the tree.
@@ -230,7 +239,21 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 		wg.Done()
 	}()
 
-	str, err := node.store(ctx, m.persist, m.nodeCache, m.marshal, storeQ)
+	versionedMarshaler := func(i interface{}) ([]byte, error) {
+		switch m.nodeFormat {
+		case V1Marshaler:
+			return m.marshal(i)
+		case V115Binary:
+			node, ok := i.(mastNode)
+			if !ok {
+				return nil, fmt.Errorf("expected mast.mastNode, got %T", i)
+			}
+			return marshalMastNode(&node, m.marshal)
+		}
+		return nil, fmt.Errorf("unknown node format '%v'", m.nodeFormat)
+	}
+
+	str, err := node.store(ctx, m.persist, m.nodeCache, versionedMarshaler, storeQ)
 	close(storeQ)
 	wg.Wait()
 	if err != nil {
@@ -460,6 +483,16 @@ func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error
 	for i := 0; i < int(r.Height); i++ {
 		shrinkSize *= uint64(r.BranchFactor)
 	}
+	var nf nodeFormat
+	switch r.NodeFormat {
+	case string(V115Binary):
+		nf = V115Binary
+	case "", string(V1Marshaler):
+		nf = V1Marshaler
+	default:
+		return nil, fmt.Errorf("unknown node format: %s", r.NodeFormat)
+	}
+
 	m := Mast{
 		root:                           link,
 		zeroKey:                        config.KeysLike,
@@ -474,6 +507,7 @@ func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error
 		shrinkBelowSize:                shrinkSize,
 		growAfterSize:                  shrinkSize * uint64(r.BranchFactor),
 		nodeCache:                      config.NodeCache,
+		nodeFormat:                     nf,
 	}
 	if config.Unmarshal == nil {
 		m.unmarshal = defaultUnmarshal
@@ -497,7 +531,13 @@ func (m *Mast) MakeRoot(ctx context.Context) (*Root, error) {
 	if err != nil {
 		return nil, fmt.Errorf("flush: %w", err)
 	}
-	return &Root{&link, m.size, m.height, m.branchFactor}, nil
+	return &Root{
+		Link:         &link,
+		Size:         m.size,
+		Height:       m.height,
+		BranchFactor: m.branchFactor,
+		NodeFormat:   string(m.nodeFormat),
+	}, nil
 }
 
 // NewInMemory returns a new tree for use as an in-memory data structure
@@ -518,10 +558,22 @@ func NewInMemory() Mast {
 // NewRoot creates an empty tree whose nodes will be persisted remotely according to remoteOptions.
 func NewRoot( /*config RemoteConfig,*/ remoteOptions *CreateRemoteOptions) *Root {
 	branchFactor := uint(DefaultBranchFactor)
-	if remoteOptions != nil && remoteOptions.BranchFactor > 0 {
-		branchFactor = remoteOptions.BranchFactor
+	nf := V115Binary
+	if remoteOptions != nil {
+		if remoteOptions.BranchFactor > 0 {
+			branchFactor = remoteOptions.BranchFactor
+		}
+		if remoteOptions.NodeFormat != nodeFormat("") {
+			nf = remoteOptions.NodeFormat
+		}
 	}
-	return &Root{nil, 0, 0, branchFactor}
+	return &Root{
+		Link:         nil,
+		Size:         0,
+		Height:       0,
+		BranchFactor: branchFactor,
+		NodeFormat:   string(nf),
+	}
 }
 
 // Height returns the number of levels between the leaves and root.
