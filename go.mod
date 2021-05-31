@@ -3,8 +3,7 @@ module github.com/jrhy/mast
 go 1.14
 
 require (
-	github.com/aws/aws-sdk-go v1.38.41
-	github.com/boltdb/bolt v1.3.1 // indirect
+	github.com/aws/aws-sdk-go v1.38.51
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/johannesboyne/gofakes3 v0.0.0-20210415062230-4b6b67a85d38
