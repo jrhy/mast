@@ -23,13 +23,13 @@ Search Trees: Efficient State-Based CRDTs in Open Networks", by
 Alex Auvolat and François Taïani, 2019
 (https://hal.inria.fr/hal-02303490/document).
 
-MSTs are similar to persistent B-Trees, except an element's layer
-(distance to leaves) is deterministically calculated (e.g.  by a
-hash function), obviating the need for complicated rebalancing or
-rotations in the implementation, but more importantly resulting in
-the amazing property of converging to the same shape even when
-entries are inserted in different orders.  This makes MSTs an
-interesting choice for conflict-free replicated data types (CRDTs).
+MSTs are similar to persistent B-Trees, except node splits are
+chosen deterministically based on key and tree height, rather than
+node size, so MSTs eliminate the dependence on insertion/deletion
+order that B-Trees have for equivalence, making MSTs an interesting
+choice for conflict-free replicated data types (CRDTs). (MSTs are
+also simpler to implement than B-Trees, needing less complicated
+rebalancing, and no rotations.)
 
 MSTs are like other Merkle structures in that two instances can
 easily be compared to confirm equality or find differences, since
