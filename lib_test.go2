@@ -11,14 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/arbitrary"
-	"github.com/leanovate/gopter/gen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var defaultGopterParameters = gopter.DefaultTestParameters()
 
 func newTestTree(zeroKey, zeroValue interface{}) Mast {
 	return Mast{
@@ -267,40 +262,6 @@ func checkRecallPow4(t *testing.T, to []TestOperation) bool {
 	return true
 }
 
-func TestRecall(t *testing.T) {
-	t.Parallel()
-	properties := gopter.NewProperties(defaultGopterParameters)
-	arbitraries := arbitrary.DefaultArbitraries()
-	arbitraries.RegisterGen(gen.UIntRange(0, 10_000))
-
-	properties.Property("get every put",
-		arbitraries.ForAll(
-			func(to []TestOperation) bool {
-				return checkRecallPow4(t, to)
-			}))
-	properties.TestingRun(t)
-}
-
-func TestCongruence(t *testing.T) {
-	t.Parallel()
-	properties := gopter.NewProperties(defaultGopterParameters)
-	arbitraries := arbitrary.DefaultArbitraries()
-	baseTree := newTestTree(uint(0), "")
-	baseTree.branchFactor = 4
-	baseTree.growAfterSize = 4
-
-	properties.Property("trees look the same no matter what order the insertions are done",
-		arbitraries.ForAll(
-			func(uintKeys []uint) bool {
-				var keys []interface{}
-				for _, key := range uintKeys {
-					keys = append(keys, key)
-				}
-				return checkCongruence(t, baseTree, keys)
-			}))
-	properties.TestingRun(t)
-}
-
 func (root *Mast) apply(to []TestOperation) error {
 	for _, to := range to {
 		err := root.Insert(ctx, to.Key, to.Value)
@@ -498,20 +459,6 @@ func TestDiffTrivial(t *testing.T) {
 		assert.Equal(t, 2, removedValue.(int))
 		return true, nil
 	})
-}
-
-func TestDiffToMidpoint(t *testing.T) {
-	t.Parallel()
-	properties := gopter.NewProperties(defaultGopterParameters)
-	arbitraries := arbitrary.DefaultArbitraries()
-
-	properties.Property("diff midpoint to endpoint",
-		arbitraries.ForAll(
-			func(midpointOps []TestOperation, endpointOps []TestOperation) bool {
-				endpointOps = append(midpointOps, endpointOps...)
-				return checkDiff(t, midpointOps, endpointOps)
-			}))
-	properties.TestingRun(t)
 }
 
 func TestDiffSkipsUnchangedTree(t *testing.T) {

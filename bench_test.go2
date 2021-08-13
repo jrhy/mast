@@ -5,8 +5,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/commands"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,13 +79,3 @@ func BenchmarkMastGet10k(b *testing.B)  { benchmarkMastGet(10_000, b) }
 func BenchmarkMastGet100k(b *testing.B) { benchmarkMastGet(100_000, b) }
 func BenchmarkMastGet1m(b *testing.B)   { benchmarkMastGet(1_000_000, b) }
 
-func BenchmarkExerciser(b *testing.B) {
-	parameters := gopter.DefaultTestParametersWithSeed(1593228262585360000)
-	parameters.MaxSize = 2048
-	parameters.MinSuccessfulTests = b.N
-	properties := gopter.NewProperties(parameters)
-	properties.Property("mast exerciser", commands.Prop(mastCommands))
-	out := bytes.NewBuffer(nil)
-	reporter := gopter.NewFormatedReporter(false, 98, out)
-	require.True(b, properties.Run(reporter))
-}
