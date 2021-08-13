@@ -472,7 +472,8 @@ func (m *Mast[K,V]) SeekIter(ctx context.Context, k interface{}, f func(interfac
 
 // LoadMast loads a tree from a remote store. The root is loaded
 // and verified; other nodes will be loaded on demand.
-func (r *Root) LoadMast[K,V any](ctx context.Context, config *RemoteConfig) (*Mast[K,V], error) {
+//func (r *Root) LoadMast[K,V any](ctx context.Context, config *RemoteConfig) (*Mast[K,V], error) {
+func LoadMast[K,V any](ctx context.Context, r *Root, config *RemoteConfig) (*Mast[K,V], error) {
 	var link interface{}
 	if r.Link != nil {
 		link = *r.Link

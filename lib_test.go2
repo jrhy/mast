@@ -15,9 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestTree(zeroKey, zeroValue interface{}) Mast {
-	return Mast{
-		root:            emptyNodePointer(DefaultBranchFactor),
+var ctx = context.Background()
+
+func newTestTree[K,V any](zeroKey K, zeroValue V) Mast[K,V] {
+	return Mast[K,V]{
+		root:            emptyNodePointer[K,V](DefaultBranchFactor),
 		zeroKey:         zeroKey,
 		zeroValue:       zeroValue,
 		branchFactor:    DefaultBranchFactor,
@@ -34,7 +36,8 @@ func newTestTree(zeroKey, zeroValue interface{}) Mast {
 
 func TestNew(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	ctx := context.Background()
+	m := NewInMemory[string,int]()
 	require.Equal(t, uint64(0), m.Size())
 	root, err := m.load(ctx, m.root)
 	require.NoError(t, err, "failed to load root")
@@ -43,10 +46,11 @@ func TestNew(t *testing.T) {
 
 func TestSplit(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
-	node := mastNode{
-		Key:   []interface{}{10, 20, 30},
-		Value: []interface{}{"", "", ""},
+	ctx := context.Background()
+	m := NewInMemory[int,string]()
+	node := mastNode[int,string]{
+		Key:   []int{10, 20, 30},
+		Value: []string{"", "", ""},
 		Link:  []interface{}{nil, nil, nil, nil},
 	}
 	newLeftLink, newRightLink, err := split(ctx, &node, 15, &m)
@@ -61,13 +65,14 @@ func TestSplit(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	ctx := context.Background()
+	m := NewInMemory[int,int]()
 	err := m.Insert(ctx, 50, 50)
 	require.NoError(t, err)
 	node, err := m.load(ctx, m.root)
 	require.NoError(t, err)
-	require.Equal(t, []interface{}{50}, node.Key)
-	require.Equal(t, []interface{}{50}, node.Value)
+	require.Equal(t, []int{50}, node.Key)
+	require.Equal(t, []int{50}, node.Value)
 	require.Equal(t, []interface{}{nil, nil}, node.Link)
 	require.Equal(t, uint64(1), m.size)
 	require.Equal(t, uint8(0), m.height)
@@ -75,8 +80,8 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	node, err = m.load(ctx, m.root)
 	require.NoError(t, err)
-	require.Equal(t, []interface{}{40, 50}, node.Key)
-	require.Equal(t, []interface{}{40, 50}, node.Value)
+	require.Equal(t, []int{40, 50}, node.Key)
+	require.Equal(t, []int{40, 50}, node.Value)
 	require.Equal(t, []interface{}{nil, nil, nil}, node.Link)
 	require.Equal(t, uint64(2), m.size)
 	require.Equal(t, uint8(0), m.height)
@@ -85,8 +90,8 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	node, err = m.load(ctx, m.root)
 	require.NoError(t, err)
-	require.Equal(t, []interface{}{40, 50, 60}, node.Key)
-	require.Equal(t, []interface{}{40, 50, 60}, node.Value)
+	require.Equal(t, []int{40, 50, 60}, node.Key)
+	require.Equal(t, []int{40, 50, 60}, node.Value)
 	require.Equal(t, []interface{}{nil, nil, nil, nil}, node.Link)
 	require.Equal(t, uint64(3), m.size)
 	require.Equal(t, uint8(0), m.height)
@@ -95,8 +100,8 @@ func TestInsert(t *testing.T) {
 	require.NoError(t, err)
 	node, err = m.load(ctx, m.root)
 	require.NoError(t, err)
-	require.Equal(t, []interface{}{40, 45, 50, 60}, node.Key)
-	require.Equal(t, []interface{}{40, 45, 50, 60}, node.Value)
+	require.Equal(t, []int{40, 45, 50, 60}, node.Key)
+	require.Equal(t, []int{40, 45, 50, 60}, node.Value)
 	require.Equal(t, []interface{}{nil, nil, nil, nil, nil}, node.Link)
 	require.Equal(t, uint64(4), m.size)
 	require.Equal(t, uint8(0), m.height)
@@ -104,7 +109,8 @@ func TestInsert(t *testing.T) {
 
 func TestInsertGrow(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	ctx := context.Background()
+	m := NewInMemory[int,int]()
 	for i := 1; i < 17; i++ {
 		var err error
 		if i == 16 {
@@ -138,7 +144,8 @@ func TestInsertGrow(t *testing.T) {
 
 func TestInsertSplit(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	ctx := context.Background()
+	m := NewInMemory[int,int]()
 	for i := 1; i < 17; i++ {
 		var err error
 		if i == 16 {
@@ -160,7 +167,8 @@ func TestInsertSplit(t *testing.T) {
 
 func TestToSlice(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	ctx := context.Background()
+	m := NewInMemory[int,int]()
 	m.Insert(ctx, 3, 0)
 	m.Insert(ctx, 1, 0)
 	m.Insert(ctx, 2, 0)
@@ -176,7 +184,8 @@ func TestToSlice(t *testing.T) {
 
 func TestKeys(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	ctx := context.Background()
+	m := NewInMemory[int,int]()
 	m.Insert(ctx, 3, 0)
 	m.Insert(ctx, 1, 0)
 	m.Insert(ctx, 2, 0)
@@ -262,7 +271,7 @@ func checkRecallPow4(t *testing.T, to []TestOperation) bool {
 	return true
 }
 
-func (root *Mast) apply(to []TestOperation) error {
+func (root *Mast[K,V]) apply(to []TestOperation) error {
 	for _, to := range to {
 		err := root.Insert(ctx, to.Key, to.Value)
 		if err != nil {
@@ -279,6 +288,7 @@ type TestOperation struct {
 
 func TestContentHash(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	m := newTestTree(0, "")
 	err := m.Insert(ctx, 1, "one")
 	require.NoError(t, err)
@@ -300,6 +310,7 @@ func TestContentHash(t *testing.T) {
 
 func TestContentHash_DiffersOnUpsert(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	m := newTestTree(0, "")
 	err := m.Insert(ctx, 1, "one")
 	require.NoError(t, err)
@@ -333,7 +344,7 @@ func TestEmptyLeavesRecall(t *testing.T) {
 func TestEmptyLeavesCongruence(t *testing.T) {
 	t.Parallel()
 	const testLen = 300
-	congruenceCase := make([]interface{}, testLen)
+	congruenceCase := make([]uint, testLen)
 	for i := 0; i < testLen; i++ {
 		n := uint(i * 16)
 		congruenceCase[i] = n
@@ -356,7 +367,7 @@ func TestEmptyTwoBottomLayersRecall(t *testing.T) {
 func TestEmptyTwoBottomLayersCongruence(t *testing.T) {
 	t.Parallel()
 	const testLen = 300
-	congruenceCase := make([]interface{}, testLen)
+	congruenceCase := make([]uint, testLen)
 	for i := 0; i < testLen; i++ {
 		n := uint(i * 256)
 		congruenceCase[i] = n
@@ -381,7 +392,7 @@ func TestEmptyMiddleLayerRecall(t *testing.T) {
 func TestEmptyMiddleLayerCongruence(t *testing.T) {
 	t.Parallel()
 	const testLen = 300
-	congruenceCase := make([]interface{}, testLen)
+	congruenceCase := make([]uint, testLen)
 	for i := 0; i < testLen; i++ {
 		var n uint = uint(i)
 		if i%16 == 0 {
@@ -409,7 +420,7 @@ func TestEmptyMiddle2LayersRecall(t *testing.T) {
 func TestEmptyMiddle2LayersCongruence(t *testing.T) {
 	t.Parallel()
 	const testLen = 300
-	congruenceCase := make([]interface{}, testLen)
+	congruenceCase := make([]uint, testLen)
 	for i := 0; i < testLen; i++ {
 		var n uint = uint(i)
 		if i%16 == 0 {
@@ -434,6 +445,7 @@ func TestInterestingZeroCase(t *testing.T) {
 
 func TestDiffTrivial(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	m := newTestTree(0, 0)
 	m.Insert(ctx, 1, 1)
 	m2 := newTestTree(0, 0)
@@ -522,6 +534,7 @@ func checkDiff(t *testing.T, oldOps []TestOperation, newOps []TestOperation) boo
 
 func TestTreeAssignmentsWorkForVersioning(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	m1 := newTestTree(0, 0)
 	m1.Insert(ctx, 1, 1)
 	m1.Insert(ctx, 2, 2)
@@ -550,7 +563,7 @@ func (me arbitraryLayerInt) Layer(branchFactor uint) uint8 {
 
 func TestSplitWithoutSlide(t *testing.T) {
 	t.Parallel()
-	var keys []interface{}
+	var keys []arbitraryLayerInt
 	for _, key := range []arbitraryLayerInt{
 		{20, 1},
 		{23, 0},
@@ -569,7 +582,7 @@ func TestSplitWithoutSlide(t *testing.T) {
 func TestSplitWithSlide(t *testing.T) {
 	t.Parallel()
 	// TODO how about checking congruence for all permutations of levels?
-	var keys []interface{}
+	var keys []arbitraryLayerInt
 	for _, key := range []arbitraryLayerInt{
 		{20, 2},
 		{23, 1},
@@ -589,7 +602,7 @@ func TestSplitWithSlide(t *testing.T) {
 	checkCongruence(t, tree, keys)
 }
 
-func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
+func checkCongruence[K comparable, V any](t *testing.T, baseTree Mast[K,V], keys []K) bool {
 	m, err := baseTree.Clone(ctx)
 	require.NoError(t, err)
 	m2, err := baseTree.Clone(ctx)
@@ -647,8 +660,8 @@ func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
 
 	// now do the deletions, verifying the expected entries are still available
 	ok := true
-	seenKeys := map[interface{}]bool{}
-	filteredKeys := []interface{}{}
+	seenKeys := map[K]bool{}
+	filteredKeys := []K{}
 	for _, key := range keys {
 		if _, seen := seenKeys[key]; seen {
 			continue
@@ -659,7 +672,8 @@ func checkCongruence(t *testing.T, baseTree Mast, keys []interface{}) bool {
 	keys = filteredKeys
 
 	for i, key := range keys {
-		err := m.Delete(ctx, key, "")
+		var v V
+		err := m.Delete(ctx, key, v)
 		assert.NoError(t, err)
 		if err != nil {
 			return false
@@ -684,7 +698,7 @@ func TestCongruenceExample(t *testing.T) {
 	m := newTestTree(uint(0), "")
 	m.branchFactor = 4
 	m.growAfterSize = 4
-	var keys []interface{}
+	var keys []uint
 	for _, key := range []uint{0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 9, 12, 11, 16, 13, 14, 25} {
 		keys = append(keys, key)
 	}
@@ -693,6 +707,7 @@ func TestCongruenceExample(t *testing.T) {
 
 func TestRemoteExample(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	inMemoryStore := NewInMemoryStore()
 	remoteConfig := RemoteConfig{
 		KeysLike:                1234,
@@ -700,13 +715,13 @@ func TestRemoteExample(t *testing.T) {
 		StoreImmutablePartsWith: inMemoryStore,
 	}
 	root := NewRoot(nil)
-	m, err := root.LoadMast(ctx, &remoteConfig)
+	m, err := LoadMast[int,string](ctx, root, &remoteConfig)
 	require.NoError(t, err)
 	err = m.Insert(ctx, 5, "yay")
 	require.NoError(t, err)
 	root, err = m.MakeRoot(ctx)
 	require.NoError(t, err)
-	m, err = root.LoadMast(ctx, &remoteConfig)
+	m, err = LoadMast[int,string](ctx, root, &remoteConfig)
 	require.NoError(t, err)
 	var value string
 	contains, err := m.Get(ctx, 5, &value)
@@ -716,6 +731,7 @@ func TestRemoteExample(t *testing.T) {
 
 func TestStructValues(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	type foo struct {
 		Asdf string
 		Q    bool
@@ -726,13 +742,13 @@ func TestStructValues(t *testing.T) {
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	}
 	root := NewRoot(nil)
-	m, err := root.LoadMast(ctx, &remoteConfig)
+	m, err := LoadMast[int,string](ctx, root, &remoteConfig)
 	require.NoError(t, err)
 	err = m.Insert(ctx, 5, foo{"a", true})
 	require.NoError(t, err)
 	root, err = m.MakeRoot(ctx)
 	require.NoError(t, err)
-	m, err = root.LoadMast(ctx, &remoteConfig)
+	m, err = LoadMast[int,string](ctx, root, &remoteConfig)
 	require.NoError(t, err)
 	var value foo
 	contains, err := m.Get(ctx, 5, &value)
@@ -742,7 +758,8 @@ func TestStructValues(t *testing.T) {
 
 func TestStringKeys(t *testing.T) {
 	t.Parallel()
-	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
+	ctx := context.Background()
+	m, err := LoadMast[string,int](ctx, NewRoot(nil), &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              5,
 		StoreImmutablePartsWith: NewInMemoryStore(),
@@ -773,7 +790,8 @@ func TestStringKeys(t *testing.T) {
 
 func TestNilValues(t *testing.T) {
 	t.Parallel()
-	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
+	ctx := context.Background()
+	m, err := LoadMast[string,*int](ctx, NewRoot(nil), &RemoteConfig{
 		KeysLike:                "hi",
 		ValuesLike:              nil,
 		StoreImmutablePartsWith: NewInMemoryStore(),
@@ -802,7 +820,7 @@ func TestNilValues(t *testing.T) {
 }
 
 // toSlice returns an array of the tree's entries.
-func (m *Mast) toSlice(ctx context.Context) ([]entry, error) {
+func (m *Mast[K,V]) toSlice(ctx context.Context) ([]entry, error) {
 	array := make([]entry, m.size)
 	i := 0
 	err := m.Iter(ctx, func(key interface{}, value interface{}) error {
@@ -817,7 +835,7 @@ func (m *Mast) toSlice(ctx context.Context) ([]entry, error) {
 }
 
 // keys returns the keys of the tree's entries as an array.
-func (m *Mast) keys(ctx context.Context) ([]interface{}, error) {
+func (m *Mast[K,V]) keys(ctx context.Context) ([]interface{}, error) {
 	array := make([]interface{}, m.size)
 	i := 0
 	err := m.Iter(ctx, func(key interface{}, _ interface{}) error {
@@ -831,7 +849,7 @@ func (m *Mast) keys(ctx context.Context) ([]interface{}, error) {
 	return array, nil
 }
 
-func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
+func (m *Mast[K,V]) contains(ctx context.Context, key K) (bool, error) {
 	if m.root == nil {
 		return false, nil
 	}
@@ -843,7 +861,7 @@ func (m *Mast) contains(ctx context.Context, key interface{}) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("layer: %w", err)
 	}
-	options := findOptions{
+	options := findOptions[K,V]{
 		targetLayer:   uint8min(layer, m.height),
 		currentHeight: m.height,
 	}
@@ -869,18 +887,19 @@ type TEAV struct {
 
 func TestEmbeddedArrayValue(t *testing.T) {
 	t.Parallel()
-	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
+	ctx := context.Background()
+	m, err := LoadMast[string,*TEAV](ctx, NewRoot(nil), &RemoteConfig{
 		KeysLike:                "hi",
-		ValuesLike:              nil,
 		StoreImmutablePartsWith: NewInMemoryStore(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, m.Insert(ctx, "hey", TEAV{true, []uint8{1, 2}}))
-	require.NoError(t, m.Insert(ctx, "hey", TEAV{true, []uint8{1, 2, 3}}))
+	require.NoError(t, m.Insert(ctx, "hey", &TEAV{true, []uint8{1, 2}}))
+	require.NoError(t, m.Insert(ctx, "hey", &TEAV{true, []uint8{1, 2, 3}}))
 }
 
 func TestCustomMarshal(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 
 	// Override the (un)marshalers to replace the default JSON one:
 	marshalGob := func(thing interface{}) ([]byte, error) {
@@ -909,7 +928,7 @@ func TestCustomMarshal(t *testing.T) {
 	}
 	gob.Register(value{})
 
-	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
+	m, err := LoadMast[string,value](ctx, NewRoot(nil), &RemoteConfig{
 		StoreImmutablePartsWith: NewInMemoryStore(),
 		Marshal:                 marshalGob,
 		Unmarshal:               unmarshalGob,
@@ -928,7 +947,7 @@ func TestCustomMarshal(t *testing.T) {
 
 func TestIterDone(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	m := NewInMemory[int,int]()
 	for i := 0; i < 10; i++ {
 		m.Insert(context.TODO(), i, i)
 	}
@@ -958,7 +977,7 @@ func TestIterDone(t *testing.T) {
 
 func TestSeekNotFound(t *testing.T) {
 	t.Parallel()
-	m := NewInMemory()
+	m := NewInMemory[int,int]()
 	for i := 0; i < 10; i++ {
 		m.Insert(context.TODO(), i, i)
 	}
@@ -979,7 +998,7 @@ func TestSeekIter(t *testing.T) {
 		numbers = append(numbers, begin)
 		begin += rnd.Intn(10) + 1
 	}
-	m := NewInMemory()
+	m := NewInMemory[int,int]()
 	for _, n := range numbers {
 		m.Insert(context.TODO(), n, n)
 	}
@@ -1005,7 +1024,7 @@ func TestNodeFormatV1MarshalerPreservesCompatibilityWithOldCode(t *testing.T) {
 	}
 	root := NewRoot(nil)
 	root.NodeFormat = ""
-	m, err := root.LoadMast(ctx, &remoteConfig)
+	m, err := LoadMast[int,string](ctx, root, &remoteConfig)
 	require.NoError(t, err)
 	require.Equal(t, V1Marshaler, m.nodeFormat)
 	err = m.Insert(ctx, 5, "yay")
@@ -1020,13 +1039,13 @@ func TestNodeFormatV1MarshalerPreservesCompatibilityWithOldCode(t *testing.T) {
 	nodeBytes, err := inMemoryStore.Load(ctx, *root.Link)
 	require.NotEqual(t, 0, len(nodeBytes))
 	require.NoError(t, err)
-	var node mastNode
+	var node mastNode[int,string]
 	err = json.Unmarshal(nodeBytes, &node)
 	require.NoError(t, err)
 
 	// simulate reading by code without knowledge of the NodeFormat field or V115Binary
 	root.NodeFormat = ""
-	m, err = root.LoadMast(ctx, &remoteConfig)
+	m, err = LoadMast[int,string](ctx, root, &remoteConfig)
 	require.NoError(t, err)
 	require.Equal(t, V1Marshaler, m.nodeFormat)
 	var value string

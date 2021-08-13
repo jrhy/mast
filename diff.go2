@@ -6,24 +6,24 @@ import (
 	"reflect"
 )
 
-type iterItem struct {
+type iterItem[K,V any] struct {
 	considerLink interface{}
 	yield        entry
 }
 
-func (m *Mast) diff(
+func (m *Mast[K,V]) diff(
 	ctx context.Context,
-	oldMast *Mast,
+	oldMast *Mast[K,V],
 	entryCb func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error),
 	linkCb func(removed bool, link interface{}) (bool, error),
 ) error {
 	alreadyNotifiedOldLink := map[uint8]interface{}{}
 	alreadyNotifiedNewLink := map[uint8]interface{}{}
-	var oldStack iterItemStack
+	var oldStack iterItemStack[K,V]
 	if oldMast != nil {
-		oldStack = newIterItemStack(iterItem{considerLink: oldMast.root})
+		oldStack = newIterItemStack[K,V](iterItem[K,V]{considerLink: oldMast.root})
 	}
-	newStack := newIterItemStack(iterItem{considerLink: m.root})
+	newStack := newIterItemStack[K,V](iterItem[K,V]{considerLink: m.root})
 	for {
 		if m.debug {
 			fmt.Printf("diff() iteration:\n")
@@ -235,7 +235,7 @@ func (m *Mast) diff(
 	}
 }
 
-func (m *Mast) alreadyNotified(ctx context.Context, name string, linkByHeight map[uint8]interface{}, link interface{}) bool {
+func (m *Mast[K,V]) alreadyNotified(ctx context.Context, name string, linkByHeight map[uint8]interface{}, link interface{}) bool {
 	path := []interface{}{}
 	myLink := link
 	var keyHeight uint8
@@ -273,17 +273,17 @@ func (m *Mast) alreadyNotified(ctx context.Context, name string, linkByHeight ma
 	return res
 }
 
-type iterItemStack struct {
-	things []iterItem
+type iterItemStack[K,V any] struct {
+	things []iterItem[K,V]
 }
 
-func newIterItemStack(item iterItem) iterItemStack {
-	return iterItemStack{
-		[]iterItem{item},
+func newIterItemStack[K,V any](item iterItem[K,V]) iterItemStack[K,V] {
+	return iterItemStack[K,V]{
+		[]iterItem[K,V]{item},
 	}
 }
 
-func (stack *iterItemStack) pop() *iterItem {
+func (stack *iterItemStack[K,V]) pop() *iterItem[K,V] {
 	if len(stack.things) > 0 {
 		popped := stack.things[len(stack.things)-1]
 		stack.things = stack.things[0 : len(stack.things)-1]
@@ -292,7 +292,7 @@ func (stack *iterItemStack) pop() *iterItem {
 	return nil
 }
 
-func (stack *iterItemStack) pushNode(node *mastNode) {
+func (stack *iterItemStack[K,V]) pushNode(node *mastNode[K,V]) {
 	for n := range node.Key {
 		i := len(node.Key) - n
 		stack.pushLink(node.Link[i])
@@ -301,16 +301,16 @@ func (stack *iterItemStack) pushNode(node *mastNode) {
 	stack.pushLink(node.Link[0])
 }
 
-func (stack *iterItemStack) pushLink(link interface{}) {
+func (stack *iterItemStack[K,V]) pushLink(link interface{}) {
 	if link != nil {
-		stack.push(&iterItem{considerLink: link})
+		stack.push(&iterItem[K,V]{considerLink: link})
 	}
 }
 
-func (stack *iterItemStack) pushYield(node *mastNode, i int) {
-	stack.push(&iterItem{yield: entry{node.Key[i], node.Value[i]}})
+func (stack *iterItemStack[K,V]) pushYield(node *mastNode[K,V], i int) {
+	stack.push(&iterItem[K,V]{yield: entry{node.Key[i], node.Value[i]}})
 }
 
-func (stack *iterItemStack) push(item *iterItem) {
+func (stack *iterItemStack[K,V]) push(item *iterItem[K,V]) {
 	stack.things = append(stack.things, *item)
 }
