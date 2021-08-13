@@ -2,13 +2,12 @@ package mast
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
-
-	"github.com/minio/blake2b-simd"
 )
 
 type stringNodeT = struct {
@@ -225,7 +224,7 @@ func (node *mastNode) store(
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
 	}
-	hashBytes := blake2b.Sum256(encoded)
+	hashBytes := sha256.Sum256(encoded)
 	hash := base64.RawURLEncoding.EncodeToString(hashBytes[:])
 	cacheKey := fmt.Sprintf("%s/%s", persist.NodeURLPrefix(), hash)
 	if cache != nil {
