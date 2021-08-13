@@ -92,8 +92,8 @@ func split[K,V any](ctx context.Context, node *mastNode[K,V], key interface{}, m
 	}
 	var tooBigLink interface{} = nil
 	left := mastNode[K,V]{
-		make([]interface{}, 0, cap(node.Key)),
-		make([]interface{}, 0, cap(node.Value)),
+		make([]K, 0, cap(node.Key)),
+		make([]V, 0, cap(node.Value)),
 		make([]interface{}, 0, cap(node.Link)),
 		true, false, nil, nil,
 	}
@@ -183,7 +183,7 @@ type findOptions[K,V any] struct {
 	path               []pathEntry[K,V]
 }
 
-func (node *mastNode[K,V]) findNode(ctx context.Context, m *Mast[K,V], key interface{}, options *findOptions) (*mastNode[K,V], int, error) {
+func (node *mastNode[K,V]) findNode(ctx context.Context, m *Mast[K,V], key interface{}, options *findOptions[K,V]) (*mastNode[K,V], int, error) {
 	i := len(node.Key)
 	if len(node.Link) != i+1 {
 		node.dump(ctx, m)
@@ -266,7 +266,7 @@ func emptyNodePointer[K,V any](branchFactor int) *mastNode[K,V] {
 	return &node
 }
 
-func (node *mastNode[K,V]) extract(from, to int) *mastNode {
+func (node *mastNode[K,V]) extract(from, to int) *mastNode[K,V] {
 	newChild := emptyNode(cap(node.Key))
 	newChild.Key = append([]interface{}{}, node.Key[from:to]...)
 	newChild.Value = append([]interface{}{}, node.Value[from:to]...)
@@ -389,7 +389,7 @@ func (m *Mast[K,V]) shrink(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load root: %w", err)
 	}
-	newNode := mastNode{
+	newNode := mastNode[K,V]{
 		Key:   make([]interface{}, 0, m.branchFactor),
 		Value: make([]interface{}, 0, m.branchFactor),
 		Link:  make([]interface{}, 0, m.branchFactor+1),
@@ -436,7 +436,7 @@ func (m *Mast[K,V]) shrink(ctx context.Context) error {
 	return nil
 }
 
-func (node *mastNode[K,V]) dump[K,V any](ctx context.Context, mast *Mast[K,V]) {
+func (node *mastNode[K,V]) dump(ctx context.Context, mast *Mast[K,V]) {
 	str, err := node.string(ctx, "  ", mast)
 	if err != nil {
 		panic(err)
@@ -444,7 +444,7 @@ func (node *mastNode[K,V]) dump[K,V any](ctx context.Context, mast *Mast[K,V]) {
 	fmt.Printf("%s", str)
 }
 
-func (node *mastNode[K,V]) string[K,V any](ctx context.Context, indent string, mast *Mast[K,V]) (string, error) {
+func (node *mastNode[K,V]) string(ctx context.Context, indent string, mast *Mast[K,V]) (string, error) {
 	res := ""
 	for i := range node.Link {
 		var label string
@@ -494,7 +494,7 @@ func (m *Mast[K,V]) dump(ctx context.Context) {
 	fmt.Printf("{\n%s}\n", str)
 }
 
-func (node *mastNode[K,V]) iter[K,V any](ctx context.Context, f func(interface{}, interface{}) error, mast *Mast[K,V]) error {
+func (node *mastNode[K,V]) iter(ctx context.Context, f func(interface{}, interface{}) error, mast *Mast[K,V]) error {
 	if mast.debug {
 		fmt.Printf("starting iter at node with keys: %v\n", node.Key)
 	}
@@ -520,7 +520,7 @@ func (node *mastNode[K,V]) iter[K,V any](ctx context.Context, f func(interface{}
 }
 
 // seekIter first seeks to idx key, and then starts the iteration
-func (node *mastNode[K,V]) seekIter[K,V any](ctx context.Context, idx int, f func(interface{}, interface{}) error, m *Mast[K,V]) error {
+func (node *mastNode[K,V]) seekIter(ctx context.Context, idx int, f func(interface{}, interface{}) error, m *Mast[K,V]) error {
 	if idx >= len(node.Key) {
 		return nil
 	}
@@ -550,7 +550,7 @@ func (node *mastNode[K,V]) seekIter[K,V any](ctx context.Context, idx int, f fun
 	return nil
 }
 
-func validateNode[K,V any](ctx context.Context, node *mastNode, mast *Mast[K,V]) {
+func validateNode[K,V any](ctx context.Context, node *mastNode[K,V], mast *Mast[K,V]) {
 	if node.expected != nil {
 		if !reflect.DeepEqual(node.expected.Key, node.Key) {
 			fmt.Printf("expected node %v\n", node.expected)
@@ -601,9 +601,9 @@ func (m *Mast[K,V]) mergeNodes(ctx context.Context, leftLink, rightLink interfac
 	if err != nil {
 		return nil, fmt.Errorf("load right: %w", err)
 	}
-	combined := &mastNode{
-		Key:   make([]interface{}, 0, m.branchFactor),
-		Value: make([]interface{}, 0, m.branchFactor),
+	combined := &mastNode[K,V]{
+		Key:   make([]K, 0, m.branchFactor),
+		Value: make([]V, 0, m.branchFactor),
 		Link:  make([]interface{}, 0, m.branchFactor+1),
 		dirty: true,
 	}
@@ -628,10 +628,10 @@ func (m *Mast[K,V]) mergeNodes(ctx context.Context, leftLink, rightLink interfac
 	return combinedLink, nil
 }
 
-func (node *mastNode[K,V]) xcopy() *mastNode {
-	newNode := mastNode{
-		make([]interface{}, 0, cap(node.Key)),
-		make([]interface{}, 0, cap(node.Value)),
+func (node *mastNode[K,V]) xcopy() *mastNode[K,V] {
+	newNode := mastNode[K,V]{
+		make([]K, 0, cap(node.Key)),
+		make([]V, 0, cap(node.Value)),
 		make([]interface{}, 0, cap(node.Link)),
 		node.dirty, node.shared, nil, nil,
 	}
@@ -673,7 +673,7 @@ func (m *Mast[K,V]) checkRoot(ctx context.Context) error {
 	return nil
 }
 
-func (node *mastNode[K,V]) ToMut(ctx context.Context, mast *Mast[K,V]) *mastNode {
+func (node *mastNode[K,V]) ToMut(ctx context.Context, mast *Mast[K,V]) *mastNode[K,V] {
 	validateNode(ctx, node, mast)
 	if !node.shared {
 		return node
@@ -684,7 +684,7 @@ func (node *mastNode[K,V]) ToMut(ctx context.Context, mast *Mast[K,V]) *mastNode
 	return newNode
 }
 
-func (node *mastNode[K,V]) ToShared() (*mastNode, error) {
+func (node *mastNode[K,V]) ToShared() (*mastNode[K,V], error) {
 	if node.shared {
 		return node, nil
 	}
@@ -692,7 +692,7 @@ func (node *mastNode[K,V]) ToShared() (*mastNode, error) {
 	var err error
 	for i, link := range node.Link {
 		switch l := link.(type) {
-		case *mastNode:
+		case *mastNode[K,V]:
 			if l.shared {
 				continue
 			}
