@@ -83,7 +83,7 @@ type Root struct {
 }
 
 // Delete deletes the entry with given key and value from the tree.
-func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
+func (m *Mast[K,V]) Delete(ctx context.Context, key K, value V) error {
 	if m.debug {
 		fmt.Printf("deleting %v...\n", key)
 	}
@@ -94,11 +94,11 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 	if err != nil {
 		return fmt.Errorf("layer: %w", err)
 	}
-	options := findOptions{
+	options := findOptions[K,V]{
 		targetLayer:        uint8min(keyLayer, m.height),
 		currentHeight:      m.height,
 		createMissingNodes: false,
-		path:               []pathEntry{},
+		path:               []pathEntry[K,V]{},
 	}
 	node, i, err := findEntry(ctx, m, key, value, &options)
 	if err != nil {
@@ -123,7 +123,7 @@ func (m *Mast) Delete(ctx context.Context, key, value interface{}) error {
 	return nil
 }
 
-func findEntry(ctx context.Context, m *Mast, key, value interface{}, options *findOptions) (*mastNode, int, error) {
+func findEntry[K,V any](ctx context.Context, m *Mast[K,V], key K, value V, options *findOptions[K,V]) (*mastNode[K,V], int, error) {
 	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return nil, 0, fmt.Errorf("load root: %w", err)
@@ -149,7 +149,7 @@ func findEntry(ctx context.Context, m *Mast, key, value interface{}, options *fi
 	return node, i, nil
 }
 
-func deleteEntry(ctx context.Context, m *Mast, node *mastNode, i int) (*mastNode, error) {
+func deleteEntry[K,V any](ctx context.Context, m *Mast[K,V], node *mastNode[K,V], i int) (*mastNode[K,V], error) {
 	oldNode := node
 	mergedLink, err := m.mergeNodes(ctx, oldNode.Link[i], oldNode.Link[i+1])
 	if err != nil {
@@ -167,28 +167,28 @@ func deleteEntry(ctx context.Context, m *Mast, node *mastNode, i int) (*mastNode
 // DiffIter invokes the given callback for every entry that is different from the given tree. The
 // iteration will stop if the callback returns keepGoing==false or an error. Callback invocation
 // with added==removed==false signifies entries whose values have changed.
-func (m *Mast) DiffIter(
+func (m *Mast[K,V]) DiffIter(
 	ctx context.Context,
-	oldMast *Mast,
+	oldMast *Mast[K,V],
 	f func(added, removed bool,
 		key, addedValue, removedValue interface{},
 	) (bool, error),
 ) error {
-	return m.diff(ctx, oldMast, f, nil)
+	return m.diff(ctx, oldMast[K,V], f, nil)
 }
 
 // DiffLinks invokes the given callback for every node that is different from the given tree. The
 // iteration will stop if the callback returns keepGoing==false or an error.
-func (m *Mast) DiffLinks(
+func (m *Mast[K,V]) DiffLinks(
 	ctx context.Context,
-	oldMast *Mast,
+	oldMast *Mast[K,V],
 	f func(removed bool, link interface{}) (bool, error),
 ) error {
-	return m.diff(ctx, oldMast, nil, f)
+	return m.diff(ctx, oldMast[K,V], nil, f)
 }
 
 // flush serializes changes (new nodes) into the persistent store.
-func (m *Mast) flush(ctx context.Context) (string, error) {
+func (m *Mast[K,V]) flush(ctx context.Context) (string, error) {
 	if m.persist == nil {
 		return "", fmt.Errorf("no persistence mechanism set; set RemoteConfig.StoreImmutablePartsWith")
 	}
@@ -244,7 +244,7 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 		case V1Marshaler:
 			return m.marshal(i)
 		case V115Binary:
-			node, ok := i.(mastNode)
+			node, ok := i.(mastNode[K,V])
 			if !ok {
 				return nil, fmt.Errorf("expected mast.mastNode, got %T", i)
 			}
@@ -268,7 +268,7 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 
 // Get gets the value of the entry with the given key and stores it at the given value pointer.
 // Returns false if the tree doesn't contain the given key.
-func (m *Mast) Get(ctx context.Context, k, value interface{}) (bool, error) {
+func (m *Mast[K,V]) Get(ctx context.Context, k, value interface{}) (bool, error) {
 	if m.root == nil {
 		return false, nil
 	}
@@ -309,7 +309,7 @@ func (m *Mast) Get(ctx context.Context, k, value interface{}) (bool, error) {
 }
 
 // Insert adds or replaces the value for the given key.
-func (m *Mast) Insert(ctx context.Context, key, value interface{}) error {
+func (m *Mast[K,V]) Insert(ctx context.Context, key, value interface{}) error {
 	if m.debug {
 		fmt.Printf("inserting %v...\n", key)
 	}
@@ -371,7 +371,7 @@ func (m *Mast) Insert(ctx context.Context, key, value interface{}) error {
 	var leftLink interface{}
 	var rightLink interface{}
 	if node.Link[i] != nil {
-		var child *mastNode
+		var child *mastNode[K,V]
 		child, err = m.load(ctx, node.Link[i])
 		if err != nil {
 			return err
@@ -420,7 +420,7 @@ func (m *Mast) Insert(ctx context.Context, key, value interface{}) error {
 }
 
 // Iter iterates over the entries of a tree, invoking the given callback for every entry's key and value.
-func (m *Mast) Iter(ctx context.Context, f func(interface{}, interface{}) error) error {
+func (m *Mast[K,V]) Iter(ctx context.Context, f func(interface{}, interface{}) error) error {
 	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return err
@@ -433,7 +433,7 @@ func (m *Mast) Iter(ctx context.Context, f func(interface{}, interface{}) error)
 }
 
 // Seekiter is similar to Iter, but the difference is to find the first position greater than or equal to the key and start the iteration
-func (m *Mast) SeekIter(ctx context.Context, k interface{}, f func(interface{}, interface{}) error) error {
+func (m *Mast[K,V]) SeekIter(ctx context.Context, k interface{}, f func(interface{}, interface{}) error) error {
 	if m.root == nil {
 		return nil
 	}
@@ -472,7 +472,7 @@ func (m *Mast) SeekIter(ctx context.Context, k interface{}, f func(interface{}, 
 
 // LoadMast loads a tree from a remote store. The root is loaded
 // and verified; other nodes will be loaded on demand.
-func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error) {
+func (r *Root) LoadMast[K,V any](ctx context.Context, config *RemoteConfig) (*Mast[K,V], error) {
 	var link interface{}
 	if r.Link != nil {
 		link = *r.Link
@@ -526,7 +526,7 @@ func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error
 
 // MakeRoot makes a new persistent root, after ensuring all the changed nodes
 // have been written to the persistent store.
-func (m *Mast) MakeRoot(ctx context.Context) (*Root, error) {
+func (m *Mast[K,V]) MakeRoot(ctx context.Context) (*Root, error) {
 	link, err := m.flush(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("flush: %w", err)
@@ -542,8 +542,8 @@ func (m *Mast) MakeRoot(ctx context.Context) (*Root, error) {
 
 // NewInMemory returns a new tree for use as an in-memory data structure
 // (i.e. that isn't intended to be remotely persisted).
-func NewInMemory() Mast {
-	return Mast{
+func NewInMemory[K,V any]() Mast[K,V] {
+	return Mast[K,V]{
 		root:            emptyNodePointer(DefaultBranchFactor),
 		branchFactor:    DefaultBranchFactor,
 		growAfterSize:   DefaultBranchFactor,
@@ -577,18 +577,18 @@ func NewRoot( /*config RemoteConfig,*/ remoteOptions *CreateRemoteOptions) *Root
 }
 
 // Height returns the number of levels between the leaves and root.
-func (m *Mast) Height() uint8 {
+func (m *Mast[K,V]) Height() uint8 {
 	return m.height
 }
 
 // Size returns the number of entries in the tree.
-func (m *Mast) Size() uint64 {
+func (m *Mast[K,V]) Size() uint64 {
 	return m.size
 }
 
 // Clone() returns a new Mast that shares all the source's data
 // but can evolve independently (copy-on-write).
-func (m *Mast) Clone(ctx context.Context) (Mast, error) {
+func (m *Mast[K,V]) Clone(ctx context.Context) (Mast[K,V], error) {
 	newNode, err := m.load(ctx, m.root)
 	if err != nil {
 		return Mast{}, err
@@ -603,8 +603,8 @@ func (m *Mast) Clone(ctx context.Context) (Mast, error) {
 }
 
 // IsDirty signifies that in-memory values have been Set() or merged that haven't been Save()d.
-func (m *Mast) IsDirty() bool {
-	if node, ok := m.root.(*mastNode); ok {
+func (m *Mast[K,V]) IsDirty() bool {
+	if node, ok := m.root.(*mastNode[K,V]); ok {
 		return node.dirty
 	}
 	return false

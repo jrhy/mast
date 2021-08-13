@@ -22,7 +22,7 @@ var (
 	defaultMarshal   = json.Marshal
 )
 
-func (m *Mast) load(ctx context.Context, link interface{}) (*mastNode, error) {
+func (m *Mast[K,V]) load(ctx context.Context, link interface{}) (*mastNode[K,V], error) {
 	switch l := link.(type) {
 	case string:
 		return m.loadPersisted(ctx, l)
@@ -33,7 +33,7 @@ func (m *Mast) load(ctx context.Context, link interface{}) (*mastNode, error) {
 	}
 }
 
-func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
+func (m *Mast[K,V]) loadPersisted(ctx context.Context, l string) (*mastNode[K,V], error) {
 	cacheKey := fmt.Sprintf("%s/%s", m.persist.NodeURLPrefix(), l)
 	if m.nodeCache != nil {
 		if node, ok := m.nodeCache.Get(cacheKey); ok {
@@ -160,7 +160,7 @@ func unmarshalNodeWithRegisteredTypes(m *Mast, nodeBytes []byte, l string, node 
 	return nil
 }
 
-func (m *Mast) store(node *mastNode) (interface{}, error) {
+func (m *Mast[K,V]) store(node *mastNode) (interface{}, error) {
 	if len(node.Link) == 1 && node.Link[0] == nil {
 		return nil, fmt.Errorf("bug! shouldn't be storing empty nodes")
 	}

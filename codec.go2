@@ -102,7 +102,7 @@ func decodeStringSlice(buf []byte, l *[]interface{}) ([]byte, error) {
 
 }
 
-func marshalMastNode(node *mastNode, marshal func(interface{}) ([]byte, error)) ([]byte, error) {
+func marshalMastNode[K,V any](node *mastNode[K,V], marshal func(interface{}) ([]byte, error)) ([]byte, error) {
 	var buf []byte
 	var err error
 	buf, err = appendEfaceSlice(buf, node.Key, marshal)
@@ -130,7 +130,7 @@ func marshalMastNode(node *mastNode, marshal func(interface{}) ([]byte, error)) 
 	return buf, nil
 }
 
-func unmarshalMastNode(m *Mast, buf []byte, node *mastNode) error {
+func unmarshalMastNode[K,V any](m *Mast[K,V], buf []byte, node *mastNode[K,V]) error {
 	var err error
 	keyT := reflect.TypeOf(m.zeroKey)
 	buf, err = decodeEfaceSlice(buf, &node.Key, keyT, m.unmarshal)
