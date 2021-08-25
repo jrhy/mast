@@ -13,8 +13,8 @@ const DefaultBranchFactor = 16
 // Mast encapsulates data and parameters for the in-memory portion of a Merkle Search Tree.
 type Mast[K, V comparable] struct {
 	root                           interface{}
-	zeroKey                        interface{}
-	zeroValue                      interface{}
+	zeroKey                        K
+	zeroValue                      V
 	keyOrder                       func(interface{}, interface{}) (int, error)
 	keyLayer                       func(key interface{}, branchFactor uint) (uint8, error)
 	unmarshalerUsesRegisteredTypes bool

@@ -41,7 +41,7 @@ func BenchmarkStdMapGet100k(b *testing.B) { benchmarkStdMapGet(100_000, b) }
 func BenchmarkStdMapGet1m(b *testing.B)   { benchmarkStdMapGet(1_000_000, b) }
 
 func benchmarkMastInsert(factor int, b *testing.B) {
-	m := newTestTree(0, "")
+	m := newTestTree(0, 0)
 	for n := 0; n < factor*b.N; n++ {
 		m.Insert(context.Background(), n, n)
 	}
@@ -56,7 +56,7 @@ func BenchmarkMastInsert100k(b *testing.B) { benchmarkMastInsert(100_000, b) }
 func BenchmarkMastInsert1m(b *testing.B)   { benchmarkMastInsert(1_000_000, b) }
 
 func benchmarkMastGet(factor int, b *testing.B) {
-	m := newTestTree(0, "")
+	m := newTestTree(0, 0)
 	b.StopTimer()
 	for n := 0; n < factor*b.N; n++ {
 		m.Insert(context.Background(), n, n)
@@ -75,4 +75,3 @@ func BenchmarkMastGet1k(b *testing.B)   { benchmarkMastGet(1_000, b) }
 func BenchmarkMastGet10k(b *testing.B)  { benchmarkMastGet(10_000, b) }
 func BenchmarkMastGet100k(b *testing.B) { benchmarkMastGet(100_000, b) }
 func BenchmarkMastGet1m(b *testing.B)   { benchmarkMastGet(1_000_000, b) }
-

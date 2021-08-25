@@ -493,8 +493,8 @@ func LoadMast[K,V comparable](ctx context.Context, r *Root, config *RemoteConfig
 
 	m := Mast[K,V]{
 		root:                           link,
-		zeroKey:                        config.KeysLike,
-		zeroValue:                      config.ValuesLike,
+		zeroKey:                        config.KeysLike.(K), // XXX
+		zeroValue:                      config.ValuesLike.(V), // XXX
 		unmarshal:                      config.Unmarshal,
 		marshal:                        config.Marshal,
 		unmarshalerUsesRegisteredTypes: config.UnmarshalerUsesRegisteredTypes,

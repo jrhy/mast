@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"reflect"
 )
 
 func appendLength(buf []byte, n int) []byte {
