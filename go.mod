@@ -3,8 +3,8 @@ module github.com/jrhy/mast
 go 1.14
 
 require (
-	github.com/aws/aws-sdk-go v1.41.1
-	github.com/gopherjs/gopherjs v0.0.0-20211004101933-6b77bd30416d
+	github.com/aws/aws-sdk-go v1.41.3
+	github.com/gopherjs/gopherjs v0.0.0-20211014092231-cac8ae8ec3c8
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/johannesboyne/gofakes3 v0.0.0-20210819161434-5c8dfcfe5310
 	github.com/leanovate/gopter v0.2.9
