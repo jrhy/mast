@@ -3,10 +3,10 @@ module github.com/jrhy/mast
 go 1.14
 
 require (
-	github.com/aws/aws-sdk-go v1.44.35
+	github.com/aws/aws-sdk-go v1.44.51
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/johannesboyne/gofakes3 v0.0.0-20220517215058-83a58ec253b6
+	github.com/johannesboyne/gofakes3 v0.0.0-20220627085814-c3ac35da23b2
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/leanovate/gopter v0.2.9
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
