@@ -3,7 +3,7 @@ module github.com/jrhy/mast
 go 1.14
 
 require (
-	github.com/aws/aws-sdk-go v1.44.116
+	github.com/aws/aws-sdk-go v1.44.121
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/johannesboyne/gofakes3 v0.0.0-20220627085814-c3ac35da23b2
@@ -12,7 +12,7 @@ require (
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/shabbyrobe/gocovmerge v0.0.0-20190829150210-3e036491d500 // indirect
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/tools v0.2.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
