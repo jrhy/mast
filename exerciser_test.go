@@ -3,6 +3,7 @@ package mast
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"testing"
@@ -85,6 +86,68 @@ var SizeCommand = &commands.ProtoCommand{
 			return &gopter.PropResult{Status: gopter.PropFalse}
 		}
 		progress("Size")
+		return &gopter.PropResult{Status: gopter.PropTrue}
+	},
+}
+
+var MinCommand = &commands.ProtoCommand{
+	Name: "Min",
+	RunFunc: func(s commands.SystemUnderTest) commands.Result {
+		cursor, err := s.(*system).m.Cursor(ctx)
+		err = cursor.Min(ctx)
+		if err != nil {
+			fmt.Printf("minCommandPostCondition: err=%v\n", err)
+			return &gopter.PropResult{Status: gopter.PropFalse}
+		}
+		actualMinKey, _, _ := cursor.Get()
+		s.(*system).cmdCount++
+		return actualMinKey
+	},
+	NextStateFunc:    func(state commands.State) commands.State { return state },
+	PreConditionFunc: func(state commands.State) bool { return true },
+	PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
+		var expectedMinKey uint = math.MaxUint
+		for k := range state.(*expected).entries {
+			if k < expectedMinKey {
+				expectedMinKey = k
+			}
+		}
+		if result.(uint) != expectedMinKey {
+			fmt.Printf("minCommand: expected=%d, actual=%d\n", expectedMinKey, result.(uint))
+			return &gopter.PropResult{Status: gopter.PropFalse}
+		}
+		progress("Min")
+		return &gopter.PropResult{Status: gopter.PropTrue}
+	},
+}
+
+var MaxCommand = &commands.ProtoCommand{
+	Name: "Max",
+	RunFunc: func(s commands.SystemUnderTest) commands.Result {
+		cursor, err := s.(*system).m.Cursor(ctx)
+		err = cursor.Max(ctx)
+		if err != nil {
+			fmt.Printf("maxCommandPostCondition: err=%v\n", err)
+			return &gopter.PropResult{Status: gopter.PropFalse}
+		}
+		actualMaxKey, _, _ := cursor.Get()
+		s.(*system).cmdCount++
+		return actualMaxKey
+	},
+	NextStateFunc:    func(state commands.State) commands.State { return state },
+	PreConditionFunc: func(state commands.State) bool { return true },
+	PostConditionFunc: func(state commands.State, result commands.Result) *gopter.PropResult {
+		var expectedMaxKey uint = 0
+		for k := range state.(*expected).entries {
+			if k > expectedMaxKey {
+				expectedMaxKey = k
+			}
+		}
+		if result.(uint) != expectedMaxKey {
+			fmt.Printf("maxCommand: expected=%d, actual=%d\n", expectedMaxKey, result.(uint))
+			return &gopter.PropResult{Status: gopter.PropFalse}
+		}
+		progress("Max")
 		return &gopter.PropResult{Status: gopter.PropTrue}
 	},
 }
@@ -603,6 +666,56 @@ var genUpdate = uintCommandGen(
 	func(value uint) commands.Command { return updateCommand(value) },
 	func(command interface{}) uint { return uint(command.(updateCommand)) })
 
+type ceilCommand uint
+
+func (value ceilCommand) Run(s commands.SystemUnderTest) commands.Result {
+	cursor, err := s.(*system).m.Cursor(ctx)
+	err = cursor.Ceil(ctx, uint(value))
+	if err != nil {
+		return err
+	}
+	res, _, ok := cursor.Get()
+	if !ok {
+		res = uint(math.MaxUint)
+	}
+	s.(*system).cmdCount++
+	return res
+}
+
+func (value ceilCommand) NextState(state commands.State) commands.State {
+	return state
+}
+
+func (value ceilCommand) PreCondition(state commands.State) bool {
+	return true
+}
+
+func (value ceilCommand) PostCondition(
+	state commands.State,
+	result commands.Result,
+) *gopter.PropResult {
+	var expectedCeil uint = math.MaxUint
+	for k := range state.(*expected).entries {
+		if k >= uint(value) && k < expectedCeil {
+			expectedCeil = k
+		}
+	}
+	if result.(uint) != expectedCeil {
+		fmt.Printf("%v: expected=%d, actual=%d\n", value, expectedCeil, result.(uint))
+		return &gopter.PropResult{Status: gopter.PropFalse}
+	}
+	progress(value)
+	return &gopter.PropResult{Status: gopter.PropTrue}
+}
+
+func (value ceilCommand) String() string {
+	return fmt.Sprintf("Ceil(%d)", value)
+}
+
+var genCeil = uintCommandGen(
+	func(value uint) commands.Command { return ceilCommand(value) },
+	func(command interface{}) uint { return uint(command.(ceilCommand)) })
+
 func entryCommandGen(toCommand func(xentry) commands.Command /*, fromCommand func(interface{}) entry*/) gopter.Gen {
 	return gen.Struct(reflect.TypeOf(&xentry{}), map[string]gopter.Gen{
 		"key":   gen.UIntRange(0, uimax),
@@ -672,6 +785,9 @@ var (
 					{Weight: 100, Gen: genUpdate},
 					{Weight: 1, Gen: gen.Const(FlushCommand)},
 					{Weight: 100, Gen: gen.Const(SizeCommand)},
+					{Weight: 1, Gen: gen.Const(MinCommand)},
+					{Weight: 1, Gen: gen.Const(MaxCommand)},
+					{Weight: 1, Gen: genCeil},
 				},
 			)
 		},

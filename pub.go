@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 )
 
@@ -608,4 +609,253 @@ func (m *Mast) IsDirty() bool {
 		return node.dirty
 	}
 	return false
+}
+
+// Cursor can be used to seek around a tree.
+type Cursor struct {
+	path []pathEntry
+	m    *Mast
+}
+
+// Cursor obtains a cursor set to the smallest value in the root node.
+func (m *Mast) Cursor(ctx context.Context) (*Cursor, error) {
+	nm, err := m.Clone(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("clone: %w", err)
+	}
+	m = &nm
+	node, err := m.load(ctx, m.root)
+	if err != nil {
+		return nil, fmt.Errorf("load root: %w", err)
+	}
+	cursor := &Cursor{
+		m: m,
+		path: []pathEntry{
+			{node, 0},
+		},
+	}
+	return cursor, nil
+}
+
+// Min moves the cursor to the smallest key in the subtree under the current position.
+func (c *Cursor) Min(ctx context.Context) error {
+	if len(c.path) == 0 {
+		return nil
+	}
+	pe := c.path[len(c.path)-1]
+	node := pe.node
+	for {
+		if len(node.Link) == 0 || node.Link[0] == nil {
+			return nil
+		}
+		child, err := node.follow(ctx, 0, false, c.m)
+		if err != nil {
+			return fmt.Errorf("following %d: %w", 0, err)
+		}
+		if child == node {
+			return nil
+		}
+		node = child
+		c.path = append(c.path,
+			pathEntry{node, 0})
+	}
+}
+
+// Max moves the cursor to the largest key in the subtree under the current position.
+func (c *Cursor) Max(ctx context.Context) error {
+	if len(c.path) == 0 {
+		return nil
+	}
+	pe := c.path[len(c.path)-1]
+	node := pe.node
+	c.path = c.path[:len(c.path)-1]
+	for {
+		if len(node.Link) == 0 || node.Link[len(node.Link)-1] == nil {
+			c.path = append(c.path,
+				pathEntry{node, len(node.Value) - 1})
+			return nil
+		} else {
+			c.path = append(c.path,
+				pathEntry{node, len(node.Link) - 1})
+		}
+		child, err := node.follow(ctx, len(node.Link)-1, false, c.m)
+		if err != nil {
+			return fmt.Errorf("following %d: %w", 0, err)
+		}
+		if child == node {
+			return nil
+		}
+		node = child
+	}
+}
+
+// Get returns the key and value of the entry at the cursor, if there is an entry,
+// or !ok if there is no entry.
+func (c *Cursor) Get() (interface{}, interface{}, bool) {
+	if len(c.path) == 0 {
+		return nil, nil, false
+	}
+	pe := c.path[len(c.path)-1]
+	node := pe.node
+	if pe.linkIndex >= len(node.Key) {
+		return nil, nil, false
+	}
+	return node.Key[pe.linkIndex], node.Value[pe.linkIndex], true
+}
+
+// Forward moves the cursor to the entry with the next-larger key.
+func (c *Cursor) Forward(ctx context.Context) error {
+	if len(c.path) == 0 {
+		return nil
+	}
+	pe := &c.path[len(c.path)-1]
+	node := pe.node
+	if pe.linkIndex+1 < len(node.Link) && node.Link[pe.linkIndex+1] != nil {
+		node, err := c.m.load(ctx, pe.node.Link[pe.linkIndex+1])
+		if err != nil {
+			return fmt.Errorf("load: %w", err)
+		}
+		pe.linkIndex++
+		c.path = append(c.path, pathEntry{node: node})
+		return c.Min(ctx)
+	} else {
+		if pe.linkIndex+1 < len(node.Key) {
+			pe.linkIndex++
+			return nil
+		}
+		for {
+			c.path = c.path[:len(c.path)-1]
+			if len(c.path) == 0 {
+				return nil
+			}
+			pe = &c.path[len(c.path)-1]
+			if pe.linkIndex < len(pe.node.Key) {
+				return nil
+			}
+		}
+	}
+}
+
+// Backward moves the cursor to the entry with th enext-smaller key.
+func (c *Cursor) Backward(ctx context.Context) error {
+	if len(c.path) == 0 {
+		return nil
+	}
+	pe := &c.path[len(c.path)-1]
+	node := pe.node
+	if node.Link[0] != nil {
+		node, err := c.m.load(ctx, pe.node.Link[pe.linkIndex])
+		if err != nil {
+			return fmt.Errorf("load: %w", err)
+		}
+		c.path = append(c.path, pathEntry{node: node})
+		return c.Max(ctx)
+	} else {
+		if pe.linkIndex > 0 {
+			pe.linkIndex--
+			return nil
+		}
+		for {
+			c.path = c.path[:len(c.path)-1]
+			if len(c.path) == 0 {
+				return nil
+			}
+			pe = &c.path[len(c.path)-1]
+			if pe.linkIndex > 0 {
+				pe.linkIndex--
+				return nil
+			}
+		}
+	}
+}
+
+// search1 updates the current path's linkIndex to the subtree
+// which would contain the given key.
+func (c *Cursor) search1(ctx context.Context, key interface{}) error {
+	pe := &c.path[len(c.path)-1]
+	node := pe.node
+	i := len(node.Key)
+	var err error
+	cmp := -1
+	if i > 0 {
+		// check max first, optimizing for in-order insertion
+		cmp, err = c.m.keyOrder(key, node.Key[i-1])
+		if err != nil {
+			return fmt.Errorf("keyCompare: %w", err)
+		}
+		if cmp <= 0 {
+			i--
+		}
+	}
+	if cmp < 0 {
+		i = sort.Search(i, func(i int) bool {
+			if err != nil {
+				return true
+			}
+			cmp, err = c.m.keyOrder(key, node.Key[i])
+			if err != nil {
+				err = fmt.Errorf("keyCompare: %w", err)
+				return true
+			}
+			return cmp <= 0
+		})
+	}
+	pe.linkIndex = i
+	return nil
+}
+
+// Ceil moves the cursor to the entry with the given key, or if not present,
+// the entry with the next-larger key.
+func (c *Cursor) Ceil(ctx context.Context, key interface{}) error {
+	for {
+		err := c.search1(ctx, key)
+		if err != nil {
+			return err
+		}
+		pe := &c.path[len(c.path)-1]
+		node := pe.node
+		if pe.linkIndex < len(node.Key) {
+			cmp, err := c.m.keyOrder(key, node.Key[pe.linkIndex])
+			if err != nil {
+				return fmt.Errorf("keyOrder: %w", err)
+			}
+			if cmp == 0 {
+				return nil
+			}
+		}
+		if node.Link[pe.linkIndex] == nil {
+			// exhausted left subtree; go up to ceil
+			for pe.linkIndex == len(node.Key) {
+				c.path = c.path[:len(c.path)-1]
+				if len(c.path) == 0 {
+					return nil
+				}
+				pe = &c.path[len(c.path)-1]
+				node = pe.node
+			}
+			return nil
+		}
+		node, err = c.m.load(ctx, pe.node.Link[pe.linkIndex])
+		if err != nil {
+			return fmt.Errorf("load: %w", err)
+		}
+		c.path = append(c.path, pathEntry{node: node})
+	}
+}
+
+func (c *Cursor) String() string {
+	res := ""
+	for i := range c.path {
+		var ks string
+		if c.path[i].linkIndex < len(c.path[i].node.Key) {
+			ks = fmt.Sprintf("%v", c.path[i].node.Key[c.path[i].linkIndex])
+		} else {
+			ks = fmt.Sprintf(">%v", c.path[i].node.Key[c.path[i].linkIndex-1])
+		}
+		if i > 0 {
+			res += " "
+		}
+		res += fmt.Sprintf("%v (index=%d)", ks, c.path[i].linkIndex)
+	}
+	return res
 }

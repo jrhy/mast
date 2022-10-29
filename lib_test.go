@@ -1087,3 +1087,91 @@ func TestNodeFormatV1MarshalerPreservesCompatibilityWithOldCode(t *testing.T) {
 	require.True(t, contains)
 	require.Equal(t, "yay", value)
 }
+
+func TestMinEmpty(t *testing.T) {
+	t.Parallel()
+	m := NewInMemory()
+	cursor, err := m.Cursor(ctx)
+	require.NoError(t, err)
+	err = cursor.Min(ctx)
+	require.NoError(t, err)
+	k, v, ok := cursor.Get()
+	require.False(t, ok)
+	require.Nil(t, k)
+	require.Nil(t, v)
+}
+
+func TestForward(t *testing.T) {
+	t.Parallel()
+	m := NewInMemory()
+	for i := 0; i < 1000; i++ {
+		err := m.Insert(ctx, i, i*10)
+		require.NoError(t, err)
+	}
+	cursor, err := m.Cursor(ctx)
+	require.NoError(t, err)
+	err = cursor.Min(ctx)
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		k, v, ok := cursor.Get()
+		require.True(t, ok)
+		require.Equal(t, i, k)
+		require.Equal(t, i*10, v)
+		err = cursor.Forward(ctx)
+		require.NoError(t, err)
+	}
+	k, v, ok := cursor.Get()
+	require.False(t, ok)
+	require.Nil(t, k)
+	require.Nil(t, v)
+}
+
+func TestBackward(t *testing.T) {
+	t.Parallel()
+	m := NewInMemory()
+	for i := 0; i < 1000; i++ {
+		err := m.Insert(ctx, i, i*10)
+		require.NoError(t, err)
+	}
+	cursor, err := m.Cursor(ctx)
+	require.NoError(t, err)
+	err = cursor.Max(ctx)
+	require.NoError(t, err)
+	for i := 999; i >= 0; i-- {
+		k, v, ok := cursor.Get()
+		require.True(t, ok)
+		require.Equal(t, i, k)
+		require.Equal(t, i*10, v)
+		err = cursor.Backward(ctx)
+		require.NoError(t, err)
+	}
+	k, v, ok := cursor.Get()
+	require.False(t, ok)
+	require.Nil(t, k)
+	require.Nil(t, v)
+}
+
+func TestCeil(t *testing.T) {
+	t.Parallel()
+	m := NewInMemory()
+	for i := 0; i < 1000; i += 2 {
+		err := m.Insert(ctx, i, i*10)
+		require.NoError(t, err)
+	}
+	for i := 998; i >= 0; i-- {
+		cursor, err := m.Cursor(ctx)
+		require.NoError(t, err)
+		err = cursor.Ceil(ctx, i)
+		require.NoError(t, err)
+		k, _, ok := cursor.Get()
+		require.True(t, ok)
+		require.Equal(t, i+i%2, k)
+	}
+	cursor, err := m.Cursor(ctx)
+	require.NoError(t, err)
+	err = cursor.Ceil(ctx, 999)
+	require.NoError(t, err)
+	k, _, ok := cursor.Get()
+	require.False(t, ok)
+	require.Nil(t, k)
+}
