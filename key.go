@@ -17,7 +17,7 @@ type Key interface {
 
 var crcTable *crc64.Table = crc64.MakeTable(crc64.ECMA)
 
-func defaultOrder(marshaler func(interface{}) ([]byte, error)) func(i, i2 interface{}) (int, error) {
+func DefaultKeyCompare(marshaler func(interface{}) ([]byte, error)) func(i, i2 interface{}) (int, error) {
 	return func(i, i2 interface{}) (int, error) {
 		switch v := i.(type) {
 		case Key:

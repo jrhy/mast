@@ -15,7 +15,7 @@ type Mast struct {
 	root                           interface{}
 	zeroKey                        interface{}
 	zeroValue                      interface{}
-	keyOrder                       func(interface{}, interface{}) (int, error)
+	keyOrder                       func(_, _ interface{}) (int, error)
 	keyLayer                       func(key interface{}, branchFactor uint) (uint8, error)
 	unmarshalerUsesRegisteredTypes bool
 	marshal                        func(interface{}) ([]byte, error)

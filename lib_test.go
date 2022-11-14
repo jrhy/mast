@@ -29,7 +29,7 @@ func newTestTree(zeroKey, zeroValue interface{}) Mast {
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),
 		persist:         NewInMemoryStore(),
-		keyOrder:        defaultOrder(defaultMarshal),
+		keyOrder:        DefaultKeyCompare(defaultMarshal),
 		keyLayer:        defaultLayer(defaultMarshal),
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
