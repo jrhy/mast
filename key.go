@@ -91,7 +91,7 @@ func DefaultKeyCompare(marshaler func(interface{}) ([]byte, error)) func(i, i2 i
 	}
 }
 
-func defaultLayer(marshaler func(interface{}) ([]byte, error)) func(i interface{}, branchFactor uint) (uint8, error) {
+func DefaultLayer(marshaler func(interface{}) ([]byte, error)) func(i interface{}, branchFactor uint) (uint8, error) {
 	return func(i interface{}, branchFactor uint) (uint8, error) {
 		switch v := i.(type) {
 		case Key:
@@ -120,6 +120,9 @@ func defaultLayer(marshaler func(interface{}) ([]byte, error)) func(i interface{
 			return uintLayer(uint64(v), branchFactor), nil
 		case uint64:
 			return uintLayer(v, branchFactor), nil
+		}
+		if marshaler == nil {
+			panic(fmt.Errorf("need marshaler for %T", i))
 		}
 		b, err := marshaler(i)
 		if err != nil {

@@ -30,7 +30,7 @@ func newTestTree(zeroKey, zeroValue interface{}) Mast {
 		shrinkBelowSize: uint64(1),
 		persist:         NewInMemoryStore(),
 		keyOrder:        DefaultKeyCompare(defaultMarshal),
-		keyLayer:        defaultLayer(defaultMarshal),
+		keyLayer:        DefaultLayer(defaultMarshal),
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
 		nodeFormat:      V115Binary,

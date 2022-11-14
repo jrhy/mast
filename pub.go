@@ -522,7 +522,7 @@ func (r *Root) LoadMast(ctx context.Context, config *RemoteConfig) (*Mast, error
 	if config.KeyCompare == nil {
 		m.keyOrder = DefaultKeyCompare(m.marshal)
 	}
-	m.keyLayer = defaultLayer(m.marshal)
+	m.keyLayer = DefaultLayer(m.marshal)
 	err := m.checkRoot(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("checkRoot: %w", err)
@@ -555,7 +555,7 @@ func NewInMemory() Mast {
 		growAfterSize:   DefaultBranchFactor,
 		shrinkBelowSize: uint64(1),
 		keyOrder:        DefaultKeyCompare(defaultMarshal),
-		keyLayer:        defaultLayer(defaultMarshal),
+		keyLayer:        DefaultLayer(defaultMarshal),
 		unmarshal:       defaultUnmarshal,
 		marshal:         defaultMarshal,
 	}
