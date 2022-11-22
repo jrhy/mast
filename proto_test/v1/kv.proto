@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "github.com/jrhy/mast/proto_test/v1";
+
+message Key {
+	string s = 1;
+}
+
+message Value {
+	string s = 1;
+}
+

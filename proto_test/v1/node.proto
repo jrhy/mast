@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "github.com/jrhy/mast/proto/v1";
+
+message Node {
+	repeated string key = 1;
+	repeated string value = 2;
+	repeated string link = 3;
+}

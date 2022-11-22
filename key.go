@@ -75,7 +75,7 @@ func DefaultKeyCompare(marshaler func(interface{}) ([]byte, error)) func(i, i2 i
 			}
 		default:
 			if reflect.TypeOf(v) != reflect.TypeOf(i2) {
-				return -1, fmt.Errorf("don't know how to compare %T with %T; set Mast.keyOrder or implement Key interface", i, i2)
+				return -1, fmt.Errorf("don't know how to compare %T with %T; set mast.RemoteConfig.KeyCompare or use keys implementing mast.Key", i, i2)
 			}
 			b, err := marshaler(i)
 			if err != nil {
@@ -87,7 +87,7 @@ func DefaultKeyCompare(marshaler func(interface{}) ([]byte, error)) func(i, i2 i
 			}
 			return bytes.Compare(b, b2), nil
 		}
-		return -1, fmt.Errorf("don't know how to compare %T with %T; set Mast.keyOrder or implement Key interface", i, i2)
+		return -1, fmt.Errorf("don't know how to compare %T with %T; set mast.RemoteConfig.KeyCompare or use keys implementing mast.Key", i, i2)
 	}
 }
 

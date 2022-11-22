@@ -142,7 +142,7 @@ func unmarshalMastNode(m *Mast, buf []byte, node *mastNode) error {
 	if err != nil {
 		return fmt.Errorf("error when unmarshal node.Value:%s", err)
 	}
-	buf, err = decodeStringSlice(buf, &node.Link)
+	_, err = decodeStringSlice(buf, &node.Link)
 	if err != nil {
 		return fmt.Errorf("error when unmarshal node.Link:%s", err)
 	}

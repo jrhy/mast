@@ -98,9 +98,11 @@ func unmarshalStringNode(m *Mast, nodeBytes []byte, l string, node *mastNode) er
 		return fmt.Errorf("cannot unmarshal %s: mismatched keys and values", l)
 	}
 	*node = mastNode{
-		make([]interface{}, len(stringNode.Key)),
-		make([]interface{}, len(stringNode.Value)),
-		make([]interface{}, len(stringNode.Key)+1),
+		Node{
+			make([]interface{}, len(stringNode.Key)),
+			make([]interface{}, len(stringNode.Value)),
+			make([]interface{}, len(stringNode.Key)+1),
+		},
 		false, true, nil, &l,
 	}
 	for i := 0; i < len(stringNode.Key); i++ {
@@ -141,7 +143,7 @@ func unmarshalStringNode(m *Mast, nodeBytes []byte, l string, node *mastNode) er
 }
 
 func unmarshalNodeWithRegisteredTypes(m *Mast, nodeBytes []byte, l string, node *mastNode) error {
-	err := m.unmarshal(nodeBytes, &node)
+	err := m.unmarshal(nodeBytes, &node.Node)
 	if err != nil {
 		return fmt.Errorf("unmarshal: %w", err)
 	}

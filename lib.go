@@ -32,13 +32,17 @@ type Mast struct {
 }
 
 type mastNode struct {
-	Key      []interface{}
-	Value    []interface{}
-	Link     []interface{} `json:",omitempty"`
+	Node
 	dirty    bool
 	shared   bool
 	expected *mastNode
 	source   *string
+}
+
+type Node struct {
+	Key   []interface{}
+	Value []interface{}
+	Link  []interface{} `json:",omitempty"`
 }
 
 type pathEntry struct {
@@ -92,9 +96,11 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (le
 	}
 	var tooBigLink interface{} = nil
 	left := mastNode{
-		make([]interface{}, 0, cap(node.Key)),
-		make([]interface{}, 0, cap(node.Value)),
-		make([]interface{}, 0, cap(node.Link)),
+		Node{
+			make([]interface{}, 0, cap(node.Key)),
+			make([]interface{}, 0, cap(node.Value)),
+			make([]interface{}, 0, cap(node.Link)),
+		},
 		true, false, nil, nil,
 	}
 	left.Key = append(left.Key, node.Key[:splitIndex]...)
@@ -128,9 +134,11 @@ func split(ctx context.Context, node *mastNode, key interface{}, mast *Mast) (le
 		}
 	}
 	right := mastNode{
-		make([]interface{}, 0, cap(node.Key)),
-		make([]interface{}, 0, cap(node.Value)),
-		make([]interface{}, 0, cap(node.Link)),
+		Node{
+			make([]interface{}, 0, cap(node.Key)),
+			make([]interface{}, 0, cap(node.Value)),
+			make([]interface{}, 0, cap(node.Link)),
+		},
 		true, false, nil, nil,
 	}
 	right.Key = append(right.Key, node.Key[splitIndex:]...)
@@ -253,9 +261,11 @@ func uint8min(x, y uint8) uint8 {
 
 func emptyNode(branchFactor int) mastNode {
 	newNode := mastNode{
-		Key:   make([]interface{}, 0, branchFactor),
-		Value: make([]interface{}, 0, branchFactor),
-		Link:  make([]interface{}, 1, branchFactor+1),
+		Node: Node{
+			Key:   make([]interface{}, 0, branchFactor),
+			Value: make([]interface{}, 0, branchFactor),
+			Link:  make([]interface{}, 1, branchFactor+1),
+		},
 	}
 	newNode.Link[0] = nil
 	return newNode
@@ -390,9 +400,11 @@ func (m *Mast) shrink(ctx context.Context) error {
 		return fmt.Errorf("load root: %w", err)
 	}
 	newNode := mastNode{
-		Key:   make([]interface{}, 0, m.branchFactor),
-		Value: make([]interface{}, 0, m.branchFactor),
-		Link:  make([]interface{}, 0, m.branchFactor+1),
+		Node: Node{
+			Key:   make([]interface{}, 0, m.branchFactor),
+			Value: make([]interface{}, 0, m.branchFactor),
+			Link:  make([]interface{}, 0, m.branchFactor+1),
+		},
 		dirty: true,
 	}
 	for i := range node.Link {
@@ -602,9 +614,11 @@ func (m *Mast) mergeNodes(ctx context.Context, leftLink, rightLink interface{}) 
 		return nil, fmt.Errorf("load right: %w", err)
 	}
 	combined := &mastNode{
-		Key:   make([]interface{}, 0, m.branchFactor),
-		Value: make([]interface{}, 0, m.branchFactor),
-		Link:  make([]interface{}, 0, m.branchFactor+1),
+		Node: Node{
+			Key:   make([]interface{}, 0, m.branchFactor),
+			Value: make([]interface{}, 0, m.branchFactor),
+			Link:  make([]interface{}, 0, m.branchFactor+1),
+		},
 		dirty: true,
 	}
 	combined.Key = append(combined.Key, left.Key...)
@@ -630,9 +644,11 @@ func (m *Mast) mergeNodes(ctx context.Context, leftLink, rightLink interface{}) 
 
 func (node *mastNode) xcopy() *mastNode {
 	newNode := mastNode{
-		make([]interface{}, 0, cap(node.Key)),
-		make([]interface{}, 0, cap(node.Value)),
-		make([]interface{}, 0, cap(node.Link)),
+		Node{
+			make([]interface{}, 0, cap(node.Key)),
+			make([]interface{}, 0, cap(node.Value)),
+			make([]interface{}, 0, cap(node.Link)),
+		},
 		node.dirty, node.shared, nil, nil,
 	}
 	newNode.Key = append(newNode.Key, node.Key...)

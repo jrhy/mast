@@ -50,9 +50,11 @@ func TestSplit(t *testing.T) {
 	t.Parallel()
 	m := NewInMemory()
 	node := mastNode{
-		Key:   []interface{}{10, 20, 30},
-		Value: []interface{}{"", "", ""},
-		Link:  []interface{}{nil, nil, nil, nil},
+		Node: Node{
+			Key:   []interface{}{10, 20, 30},
+			Value: []interface{}{"", "", ""},
+			Link:  []interface{}{nil, nil, nil, nil},
+		},
 	}
 	newLeftLink, newRightLink, err := split(ctx, &node, 15, &m)
 	require.NoError(t, err)
@@ -198,7 +200,7 @@ func checkRecall(t *testing.T, to []TestOperation) bool {
 		err := m.apply(to[i : i+1])
 		require.NoError(t, err)
 		actual := make(map[uint]uint)
-		err = m.Iter(ctx, func(key interface{}, value interface{}) error {
+		m.Iter(ctx, func(key interface{}, value interface{}) error {
 			intKey := key.(uint)
 			uintValue := value.(uint)
 			actual[uint(intKey)] = uintValue
@@ -827,9 +829,10 @@ func TestStringKeys(t *testing.T) {
 func TestNilValues(t *testing.T) {
 	t.Parallel()
 	m, err := NewRoot(nil).LoadMast(ctx, &RemoteConfig{
-		KeysLike:                "hi",
-		ValuesLike:              nil,
-		StoreImmutablePartsWith: NewInMemoryStore(),
+		KeysLike:                       "hi",
+		ValuesLike:                     nil,
+		StoreImmutablePartsWith:        NewInMemoryStore(),
+		UnmarshalerUsesRegisteredTypes: true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, m.Insert(ctx, "hey", "zazz"))
@@ -1084,6 +1087,7 @@ func TestNodeFormatV1MarshalerPreservesCompatibilityWithOldCode(t *testing.T) {
 	require.Equal(t, V1Marshaler, m.nodeFormat)
 	var value string
 	contains, err := m.Get(ctx, 5, &value)
+	require.NoError(t, err)
 	require.True(t, contains)
 	require.Equal(t, "yay", value)
 }
@@ -1174,4 +1178,33 @@ func TestCeil(t *testing.T) {
 	k, _, ok := cursor.Get()
 	require.False(t, ok)
 	require.Nil(t, k)
+}
+
+func TestMarshalerSeesNode(t *testing.T) {
+	t.Parallel()
+	storedNode := 0
+	storedSomethingElse := 0
+	remoteConfig := RemoteConfig{
+		Marshal: func(i interface{}) ([]byte, error) {
+			if _, ok := i.(Node); !ok {
+				storedSomethingElse++
+				return nil, fmt.Errorf("got a %T, expected Node", i)
+			}
+			storedNode++
+			return nil, nil
+		},
+		StoreImmutablePartsWith:        NewInMemoryStore(),
+		UnmarshalerUsesRegisteredTypes: true,
+	}
+	root := NewRoot(nil)
+	root.NodeFormat = string(V1Marshaler)
+	m, err := root.LoadMast(ctx, &remoteConfig)
+	require.NoError(t, err)
+	err = m.Insert(ctx, 1, 1)
+	require.NoError(t, err)
+	root, err = m.MakeRoot(ctx)
+	require.NoError(t, err)
+	require.Equal(t, string(V1Marshaler), root.NodeFormat)
+	require.Equal(t, 1, storedNode)
+	require.Equal(t, 0, storedSomethingElse)
 }

@@ -242,10 +242,19 @@ func (m *Mast) flush(ctx context.Context) (string, error) {
 		wg.Done()
 	}()
 
+	if !m.unmarshalerUsesRegisteredTypes && (m.zeroKey == nil || m.zeroValue == nil) {
+		return "", errors.New("will not be able to figure out which type to unmarshal entries as; set RemoteConfig.{Keys,Values}Like or UnmarshalerUsesRegisteredTypes")
+	}
+
 	versionedMarshaler := func(i interface{}) ([]byte, error) {
 		switch m.nodeFormat {
 		case V1Marshaler:
-			return m.marshal(i)
+			switch x := i.(type) {
+			case mastNode:
+				return m.marshal(x.Node)
+			default:
+				return m.marshal(x)
+			}
 		case V115Binary:
 			node, ok := i.(mastNode)
 			if !ok {
