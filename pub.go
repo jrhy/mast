@@ -546,8 +546,12 @@ func (m *Mast) MakeRoot(ctx context.Context) (*Root, error) {
 	if err != nil {
 		return nil, fmt.Errorf("flush: %w", err)
 	}
+	linkp := &link
+	if link == "" {
+		linkp = nil
+	}
 	return &Root{
-		Link:         &link,
+		Link:         linkp,
 		Size:         m.size,
 		Height:       m.height,
 		BranchFactor: m.branchFactor,
