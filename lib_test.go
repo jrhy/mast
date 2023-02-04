@@ -1208,3 +1208,15 @@ func TestMarshalerSeesNode(t *testing.T) {
 	require.Equal(t, 1, storedNode)
 	require.Equal(t, 0, storedSomethingElse)
 }
+
+func TestCloneEmpty(t *testing.T) {
+	t.Parallel()
+	m1 := newTestTree(0, 0)
+	require.NoError(t, m1.Insert(ctx, 1, 1))
+	require.NoError(t, m1.Delete(ctx, 1, 1))
+	_, err := m1.MakeRoot(ctx)
+	require.NoError(t, err)
+	m2, err := m1.Clone(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), m2.Size())
+}

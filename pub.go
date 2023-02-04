@@ -335,11 +335,17 @@ func (m *Mast) Insert(ctx context.Context, key, value interface{}) error {
 		createMissingNodes: true,
 		path:               []pathEntry{},
 	}
-	node, err := m.load(ctx, m.root)
-	if err != nil {
-		return err
+	var node *mastNode
+	var i int
+	if m.root == nil {
+		node = emptyNodePointer(int(m.branchFactor))
+	} else {
+		node, err = m.load(ctx, m.root)
+		if err != nil {
+			return err
+		}
 	}
-	node, i, err := node.findNode(ctx, m, key, &options)
+	node, i, err = node.findNode(ctx, m, key, &options)
 	if err != nil {
 		return err
 	}
@@ -608,16 +614,18 @@ func (m *Mast) Size() uint64 {
 // Clone() returns a new Mast that shares all the source's data
 // but can evolve independently (copy-on-write).
 func (m *Mast) Clone(ctx context.Context) (Mast, error) {
-	newNode, err := m.load(ctx, m.root)
-	if err != nil {
-		return Mast{}, err
-	}
 	m2 := *m
-	newRoot, err := newNode.ToShared()
-	if err != nil {
-		return Mast{}, err
+	if m.root != nil {
+		newNode, err := m.load(ctx, m.root)
+		if err != nil {
+			return Mast{}, err
+		}
+		newRoot, err := newNode.ToShared()
+		if err != nil {
+			return Mast{}, err
+		}
+		m2.root = newRoot
 	}
-	m2.root = newRoot
 	return m2, nil
 }
 
@@ -642,6 +650,12 @@ func (m *Mast) Cursor(ctx context.Context) (*Cursor, error) {
 		return nil, fmt.Errorf("clone: %w", err)
 	}
 	m = &nm
+	if m.root == nil {
+		return &Cursor{
+			m:    m,
+			path: nil,
+		}, nil
+	}
 	node, err := m.load(ctx, m.root)
 	if err != nil {
 		return nil, fmt.Errorf("load root: %w", err)
