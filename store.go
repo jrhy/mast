@@ -58,7 +58,9 @@ func (m *Mast) loadPersisted(ctx context.Context, l string) (*mastNode, error) {
 				node.Link = make([]interface{}, len(node.Key)+1)
 			}
 			node.shared = true
-			node.expected = node.xcopy()
+			if debugMutation {
+				node.expected = node.xcopy()
+			}
 			node.source = &l
 			return nil
 		}
@@ -138,7 +140,9 @@ func unmarshalStringNode(m *Mast, nodeBytes []byte, l string, node *mastNode) er
 			}
 		}
 	}
-	node.expected = node.xcopy()
+	if debugMutation {
+		node.expected = node.xcopy()
+	}
 	return nil
 }
 
@@ -157,7 +161,9 @@ func unmarshalNodeWithRegisteredTypes(m *Mast, nodeBytes []byte, l string, node 
 		return fmt.Errorf("unmarshaled wrong number of links")
 	}
 	node.shared = true
-	node.expected = node.xcopy()
+	if debugMutation {
+		node.expected = node.xcopy()
+	}
 	node.source = &l
 	return nil
 }
@@ -169,6 +175,8 @@ func (m *Mast) store(node *mastNode) (interface{}, error) {
 	return node, nil
 }
 
+const debugMutation = false
+
 func (node *mastNode) store(
 	ctx context.Context,
 	persist Persist,
@@ -177,7 +185,7 @@ func (node *mastNode) store(
 	storeQ chan func() error,
 ) (string, error) {
 	if !node.dirty {
-		if node.expected != nil {
+		if debugMutation && node.expected != nil {
 			if !reflect.DeepEqual(node.expected.Key, node.Key) {
 				fmt.Printf("expected node %v\n", node.expected)
 				fmt.Printf("found    node %v\n", node)
@@ -192,7 +200,7 @@ func (node *mastNode) store(
 		if node.source != nil {
 			return *node.source, nil
 		}
-	} else if node.expected != nil {
+	} else if debugMutation && node.expected != nil {
 		if !reflect.DeepEqual(node.expected.Key, node.Key) &&
 			reflect.DeepEqual(node.expected.Value, node.Value) &&
 			reflect.DeepEqual(node.expected.Link, node.Link) {
@@ -252,7 +260,9 @@ func (node *mastNode) store(
 			*node.source, hash, node.expected.Key, node.Key))
 	}
 	node.dirty = false
-	node.expected = node.xcopy()
+	if debugMutation {
+		node.expected = node.xcopy()
+	}
 	node.source = &hash
 	node.shared = true
 	return hash, nil

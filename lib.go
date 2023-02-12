@@ -563,7 +563,7 @@ func (node *mastNode) seekIter(ctx context.Context, idx int, f func(interface{},
 }
 
 func validateNode(ctx context.Context, node *mastNode, mast *Mast) {
-	if node.expected != nil {
+	if debugMutation && node.expected != nil {
 		if !reflect.DeepEqual(node.expected.Key, node.Key) {
 			fmt.Printf("expected node %v\n", node.expected)
 			fmt.Printf("found    node %v\n", node)
