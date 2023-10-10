@@ -330,18 +330,27 @@ func (n diffCommand) Run(s commands.SystemUnderTest) commands.Result {
 		false: {},
 		true:  {},
 	}
-	err := s.(*system).m.DiffIter(ctx, old,
-		func(added bool, removed bool, k interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
-			if added || !removed {
-				diffs[false][uint(k.(uint))] = addedValue.(uint)
-			}
-			if removed || !added {
-				diffs[true][uint(k.(uint))] = removedValue.(uint)
-			}
-			return true, nil
-		})
+	ds, err := s.(*system).m.StartDiff(ctx, old)
 	if err != nil {
-		return fmt.Errorf("diffIter: %w", err)
+		return fmt.Errorf("startDiff: %w", err)
+	}
+	for {
+		d, err := ds.NextEntry(ctx)
+		if err == ErrNoMoreDiffs {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("diff: %w", err)
+		}
+		if d.Type != DiffType_Remove {
+			diffs[false][uint(d.Key.(uint))] = d.NewValue.(uint)
+		}
+		if d.Type != DiffType_Add {
+			diffs[true][uint(d.Key.(uint))] = d.OldValue.(uint)
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("nextEntry: %w", err)
 	}
 	s.(*system).cmdCount++
 	return diffs

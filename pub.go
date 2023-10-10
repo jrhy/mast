@@ -167,6 +167,74 @@ func deleteEntry(ctx context.Context, m *Mast, node *mastNode, i int) (*mastNode
 	return node, nil
 }
 
+type DiffCursor struct {
+	done bool
+	m    *Mast
+	*diffState
+}
+
+func (m *Mast) StartDiff(
+	ctx context.Context,
+	oldMast *Mast,
+) (*DiffCursor, error) {
+	return &DiffCursor{
+		m:         m,
+		diffState: newDiffState(oldMast, m),
+	}, nil
+}
+
+type Diff struct {
+	Key      interface{}
+	Type     DiffType
+	OldValue interface{}
+	NewValue interface{}
+}
+type DiffType int
+
+const (
+	DiffType_Add DiffType = iota
+	DiffType_Remove
+	DiffType_Change
+)
+
+func (dc *DiffCursor) NextEntry(ctx context.Context) (Diff, error) {
+	if dc.done {
+		return Diff{}, ErrNoMoreDiffs
+	}
+	for {
+		dc.resetCurrent()
+		err := dc.m.diffOne(ctx, dc.diffState)
+		if err == ErrNoMoreDiffs {
+			dc.done = true
+			return Diff{}, ErrNoMoreDiffs
+		}
+		if err != nil {
+			return Diff{}, err
+		}
+		if dc.curKey == nil {
+			continue
+		}
+		return Diff{
+			Key:      dc.curKey,
+			Type:     op(dc.hasRemove, dc.hasAdd),
+			OldValue: dc.removedValue,
+			NewValue: dc.addedValue,
+		}, nil
+	}
+}
+
+func op(removed, added bool) DiffType {
+	if !removed && !added {
+		return DiffType_Change
+	} else if removed && added {
+		panic("undefined Difftype")
+	} else if removed {
+		return DiffType_Remove
+	} else {
+		return DiffType_Add
+	}
+}
+
 // DiffIter invokes the given callback for every entry that is different from the given tree. The
 // iteration will stop if the callback returns keepGoing==false or an error. Callback invocation
 // with added==removed==false signifies entries whose values have changed.

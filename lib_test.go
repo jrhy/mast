@@ -554,14 +554,20 @@ func checkDiff(t *testing.T, oldOps []TestOperation, newOps []TestOperation) boo
 	_, err = old.flush(ctx)
 	require.NoError(t, err)
 	new.debug = false
-	new.DiffIter(ctx, &old, func(added bool, removed bool, key interface{}, addedValue interface{}, removedValue interface{}) (bool, error) {
-		if added {
-			actualDiffs[key] = addedValue
-		} else if removed {
-			actualDiffs[key] = removedValue
+	ds, err := new.StartDiff(ctx, &old)
+	require.NoError(t, err)
+	for {
+		d, err := ds.NextEntry(ctx)
+		if err == ErrNoMoreDiffs {
+			break
 		}
-		return true, nil
-	})
+		require.NoError(t, err)
+		if d.Type == DiffType_Add {
+			actualDiffs[d.Key] = d.NewValue
+		} else if d.Type == DiffType_Remove {
+			actualDiffs[d.Key] = d.OldValue
+		}
+	}
 	if !reflect.DeepEqual(expectedDiffs, actualDiffs) {
 		fmt.Printf("checkDiff, oldOps=%v, newOps=%v\n", oldOps, newOps)
 
