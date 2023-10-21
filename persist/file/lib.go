@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -19,7 +18,7 @@ var _ mast.Persist = Persist{}
 
 // Load loads the bytes persisted in the named file.
 func (p Persist) Load(ctx context.Context, name string) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(p.basepath, name))
+	return os.ReadFile(filepath.Join(p.basepath, name))
 }
 
 // Store persists the given bytes in a file of the given name, if it
@@ -28,7 +27,7 @@ func (p Persist) Store(ctx context.Context, name string, bytes []byte) error {
 	path := filepath.Join(p.basepath, name)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return ioutil.WriteFile(filepath.Join(p.basepath, name), bytes, 0644)
+		return os.WriteFile(filepath.Join(p.basepath, name), bytes, 0644)
 	}
 	return nil
 }
@@ -36,8 +35,8 @@ func (p Persist) Store(ctx context.Context, name string, bytes []byte) error {
 // NewPersistForPath returns a Persist that loads and stores nodes as
 // files in the directory at the given path.
 //
-//      p := NewPersistForPath("/var/db/users")
-//      err, blob := p.load("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")
+//	p := NewPersistForPath("/var/db/users")
+//	err, blob := p.load("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")
 func NewPersistForPath(path string) Persist {
 	return Persist{path}
 }

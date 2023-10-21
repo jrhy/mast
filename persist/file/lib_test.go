@@ -3,7 +3,6 @@ package file
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -14,7 +13,7 @@ import (
 var ctx = context.Background()
 
 func TestFiles(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test")
+	dir, err := os.MkdirTemp("", "test")
 	require.NoError(t, err)
 
 	p := NewPersistForPath(dir)

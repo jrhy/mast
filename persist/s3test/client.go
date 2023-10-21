@@ -67,7 +67,10 @@ func Client() (*s3.S3, string, func()) {
 			DisableSSL:       aws.Bool(true),
 			S3ForcePathStyle: aws.Bool(true),
 		}
-		newSession := session.New(s3Config)
+		newSession, err := session.NewSession(s3Config)
+		if err != nil {
+			panic(err)
+		}
 		client = s3.New(newSession)
 	}
 
