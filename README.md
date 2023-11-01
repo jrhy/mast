@@ -12,6 +12,11 @@ immutable, versioned, diffable map implementation of the Merkle Search Tree
 * Flexible change reporting through efficient diffing of snapshots
 
 
+# What's new?
+
+* v1.2.23 adds `func (m *Mast) StartDiff(context.Context,        oldMast *Mast) (*DiffCursor, error)`
+for stateful iterating through differences without callbacks
+
 # Documentation
 
 See Go package documentation at:
