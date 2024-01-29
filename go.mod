@@ -3,9 +3,9 @@ module github.com/jrhy/mast
 go 1.20
 
 require (
-	github.com/aws/aws-sdk-go v1.49.21
+	github.com/aws/aws-sdk-go v1.50.5
 	github.com/hashicorp/golang-lru v1.0.2
-	github.com/johannesboyne/gofakes3 v0.0.0-20230914150226-f005f5cc03aa
+	github.com/johannesboyne/gofakes3 v0.0.0-20240117152127-f7e9c41d81b2
 	github.com/leanovate/gopter v0.2.9
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/stretchr/testify v1.8.4
