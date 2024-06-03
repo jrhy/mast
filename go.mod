@@ -3,7 +3,7 @@ module github.com/jrhy/mast
 go 1.20
 
 require (
-	github.com/aws/aws-sdk-go v1.53.10
+	github.com/aws/aws-sdk-go v1.53.15
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/johannesboyne/gofakes3 v0.0.0-20240513200200-99de01ee122d
 	github.com/leanovate/gopter v0.2.11
