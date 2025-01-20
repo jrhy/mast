@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.22.4
 
 require (
-	github.com/aws/aws-sdk-go v1.55.5
+	github.com/aws/aws-sdk-go v1.55.6
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/johannesboyne/gofakes3 v0.0.0-20240930195952-2db7ccb81e19
 	github.com/leanovate/gopter v0.2.11
